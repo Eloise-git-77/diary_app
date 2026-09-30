@@ -13,6 +13,7 @@
 <style>
 /* ============ 基础 ============ */
 * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root{ --app-h:100vh; } /* 真实可视高度：JS 会覆盖为 innerHeight，兼容微信/老 iOS 等不支持 dvh 的环境 */
 html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
 body{
   position:fixed; inset:0;
@@ -62,8 +63,8 @@ button{ font-family:inherit; border:none; background:none; cursor:pointer; color
 /* 手机/窄屏：全屏铺满（不再显示手机壳和假状态栏） */
 @media (max-width:960px){
   body{ padding:0; gap:0; }
-  .phone{ width:100vw; max-width:520px; height:100vh; height:100dvh; border-radius:0; box-shadow:none; padding:0; zoom:1 !important; }
-  .screen{ border-radius:0; height:100dvh; padding-top:env(safe-area-inset-top, 0px); }
+  .phone{ width:100vw; max-width:520px; height:var(--app-h); border-radius:0; box-shadow:none; padding:0; zoom:1 !important; }
+  .screen{ border-radius:0; height:100%; padding-top:env(safe-area-inset-top, 0px); }
   .statusbar{ display:none; }
   /* 底部：导航栏加高避开 Home 横条，内容底部留白同步增加 */
   .tabbar{ height:calc(86px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }
@@ -86,6 +87,10 @@ body.pwa .agent-input{ padding:10px 14px calc(26px + env(safe-area-inset-bottom,
   width:390px; height:844px; flex-shrink:0;
   background:#141210; border-radius:54px; padding:12px;
   box-shadow:0 24px 60px rgba(40,25,10,.35), inset 0 0 3px rgba(255,255,255,.2);
+}
+/* 不支持 zoom 的浏览器（老 Firefox 等）：改为限高，保证底栏不被裁掉 */
+@supports not (zoom:1){
+  .phone{ height:min(844px, calc(100vh - 40px)); }
 }
 .screen{
   position:relative; width:100%; height:100%;
@@ -471,9 +476,9 @@ body.pwa .agent-input{ padding:10px 14px calc(26px + env(safe-area-inset-bottom,
 /* ============ PWA 独立运行（添加到主屏幕后全屏 App 模式） ============ */
 body.pwa{ padding:0; gap:0; }
 body.pwa aside.side-note{ display:none; }
-body.pwa .phone{ width:100vw; max-width:520px; height:100vh; height:100dvh; border-radius:0; box-shadow:none; padding:0; zoom:1 !important; }
+body.pwa .phone{ width:100vw; max-width:520px; height:var(--app-h); border-radius:0; box-shadow:none; padding:0; zoom:1 !important; }
 body.pwa .statusbar{ display:none; }
-body.pwa .screen{ border-radius:0; height:100dvh; }
+body.pwa .screen{ border-radius:0; height:100%; }
 
 /* ============ 安装引导条 ============ */
 .install-tip{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(140%);
@@ -968,7 +973,7 @@ const THEMES = {
   rose:{       name:'樱粉',   p:'#C96A82', s:'#F7E6EB', d:'#A85468', sd:'#3C242C', dd:'#E594AA' },
 };
 const settings = { theme:'terracotta', darkMode:'system', nightAuto:false, bgLight:'cream', bgDark:'charcoal' };
-const APP_VERSION = 'v1.3'; /* 「我的」页展示 · 改动时同步更新 */
+const APP_VERSION = 'v1.4'; /* 「我的」页展示 · 改动时同步更新 */
 let profile = { name:'柚子', emoji:'柚' }; /* 本机资料（网页版无账号，随备份迁移） */
 const sysDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -2595,6 +2600,15 @@ $('clearData').addEventListener('click',()=>{
 if(restore()){
   $('dataInfo').textContent = `已自动保存 ${diaries.length} 篇日记 · 断网/重启不丢失`;
 }
+/* 视口真实高度 → CSS 变量：兼容微信内置浏览器/老 iOS 等不支持 dvh 的环境，底栏不再被地址栏挡住 */
+function setAppH(){
+  document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+}
+setAppH();
+addEventListener('resize', setAppH);
+addEventListener('orientationchange', ()=>setTimeout(setAppH, 60)); /* 部分安卓转屏后高度延迟更新 */
+if(window.visualViewport) visualViewport.addEventListener('resize', setAppH);
+
 /* 手机框随视口高度自适应缩放：视口不够高时整体缩小，避免外层页面滚动导致点击错位/元素够不到 */
 function fitPhone(){
   if(document.body.classList.contains('pwa')) return; /* App 模式已全屏，无需缩放 */

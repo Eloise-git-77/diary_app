@@ -1,5 +1,5 @@
 /* 拾光日记 Service Worker：离线可用 + 媒体运行时缓存（相对路径，任意子目录部署均可用） */
-const CACHE = 'shiguang-v8';
+const CACHE = 'shiguang-v9';
 const PRECACHE = [
   './index.html',
   './manifest.json',
