@@ -497,21 +497,18 @@ body.pwa .screen{ border-radius:0; height:100%; }
 .sheet-ttl{ font-size:15px; font-weight:700; margin-bottom:2px; }
 .sheet-sub{ font-size:12px; color:var(--ink2); margin-bottom:12px; }
 
-.map-canvas{ position:relative; width:100%; height:220px; border-radius:20px; overflow:hidden; background:#EAE6DC; flex-shrink:0; }
-.map-canvas .road-h{ position:absolute; left:0; right:0; height:14px; background:#fff; }
-.map-canvas .road-v{ position:absolute; top:0; bottom:0; width:14px; background:#fff; }
-.map-canvas .park{ position:absolute; background:#C9DCC2; border-radius:14px; }
-.map-canvas .water{ position:absolute; background:#AFD0E6; border-radius:50%; }
-.map-canvas .blk{ position:absolute; background:#E0DACB; border-radius:8px; }
-.screen.dark .map-canvas{ background:#2E2A22; }
-.screen.dark .map-canvas .blk{ background:#3C372C; }
-.screen.dark .map-canvas .park{ background:#33452F; }
-.screen.dark .map-canvas .water{ background:#2C3D4A; }
-.screen.dark .map-canvas .road-h, .screen.dark .map-canvas .road-v{ background:#4A4437; }
-.map-canvas .me-pin{ position:absolute; width:18px; height:18px; border-radius:50%; background:var(--primary);
-  border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.3); z-index:3; }
+.poi-search{ display:flex; align-items:center; gap:9px; background:var(--card); border:1px solid var(--line);
+  border-radius:13px; padding:10px 13px; margin-top:2px; color:var(--ink3); box-shadow:var(--shadow); flex-shrink:0; }
+.poi-search input{ flex:1; border:none; outline:none; background:none; font-size:14px; color:var(--ink); font-family:inherit; min-width:0; }
+.poi-search input::placeholder{ color:var(--ink3); }
+#poiSearchClear{ width:22px; height:22px; border-radius:50%; background:var(--line); color:var(--ink2);
+  font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center; flex-shrink:0; padding:0; }
 .poi-list{ flex:1; overflow-y:auto; overscroll-behavior:contain; margin-top:12px; }
 .poi{ display:flex; align-items:center; gap:12px; padding:13px 6px; border-bottom:1px solid var(--line); cursor:pointer; }
+.poi.poi-new{ background:var(--primary-soft); border-radius:12px; border-bottom:none; margin:2px 0 6px; }
+.poi.poi-new .p-name{ color:var(--primary-deep); font-weight:600; }
+.poi-empty{ padding:22px 6px; text-align:center; font-size:12.5px; color:var(--ink3); line-height:1.8; }
+.poi-sec{ font-size:11px; color:var(--ink3); letter-spacing:1px; padding:10px 6px 4px; }
 .poi .p-ic{ width:36px; height:36px; border-radius:12px; background:var(--card); display:flex;
   align-items:center; justify-content:center; font-size:17px; box-shadow:var(--shadow); flex-shrink:0; }
 .poi .p-name{ font-size:14.5px; }
@@ -846,18 +843,10 @@ body.pwa .screen{ border-radius:0; height:100%; }
         <div class="grab"></div>
         <div class="sheet-ttl">插入地点</div>
         <div class="sheet-sub">将插入到当前光标位置（若未聚焦文字，则追加到最后一段文字）</div>
-        <div class="map-canvas">
-          <div class="blk" style="left:8%;top:10%;width:20%;height:22%"></div>
-          <div class="blk" style="left:12%;top:44%;width:16%;height:18%"></div>
-          <div class="blk" style="right:10%;top:14%;width:22%;height:20%"></div>
-          <div class="blk" style="right:14%;top:52%;width:18%;height:16%"></div>
-          <div class="park" style="left:36%;top:14%;width:24%;height:26%"></div>
-          <div class="water" style="left:34%;top:60%;width:30%;height:34%"></div>
-          <div class="road-h" style="top:46%"></div>
-          <div class="road-v" style="left:30%"></div>
-          <div class="road-v" style="right:28%"></div>
-          <div class="road-h" style="top:8%"></div>
-          <div class="me-pin" style="left:48%;top:42%"></div>
+        <div class="poi-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="poiSearch" placeholder="搜索地点，或输入新地点名…" autocomplete="off">
+          <button id="poiSearchClear" hidden>×</button>
         </div>
         <div class="poi-list" id="poiList"></div>
       </div>
@@ -973,7 +962,7 @@ const THEMES = {
   rose:{       name:'樱粉',   p:'#C96A82', s:'#F7E6EB', d:'#A85468', sd:'#3C242C', dd:'#E594AA' },
 };
 const settings = { theme:'terracotta', darkMode:'system', nightAuto:false, bgLight:'cream', bgDark:'charcoal' };
-const APP_VERSION = 'v1.4'; /* 「我的」页展示 · 改动时同步更新 */
+const APP_VERSION = 'v1.5'; /* 「我的」页展示 · 改动时同步更新 */
 let profile = { name:'柚子', emoji:'柚' }; /* 本机资料（网页版无账号，随备份迁移） */
 const sysDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -1402,10 +1391,6 @@ function insertLocToText(el, name, addr){
   sel.removeAllRanges(); sel.addRange(range);
   lastFocusTextEl = el; savedRange = range.cloneRange();
 }
-$('toolPin').addEventListener('click',()=>{
-  if(recState!=='idle'){ toast('正在录音，先停止录音再插入地点'); return; }
-  $('mapMask').classList.add('show');
-});
 function pickPoi(p){
   let el = (lastFocusTextEl && document.contains(lastFocusTextEl)) ? lastFocusTextEl : null;
   if(!el){
@@ -2061,22 +2046,104 @@ $('quickRow').querySelectorAll('.q-chip').forEach(c=>{
   c.addEventListener('click',()=>sendAgent(c.dataset.q));
 });
 
-/* ================= 地图 POI ================= */
-const POIS = [
-  {ic:'🏠', name:'家',           addr:'徐汇区 · 永嘉路',      dist:'此处'},
-  {ic:'☕️', name:'半层书店',     addr:'虹口区哈尔滨路129号',  dist:'1.2km'},
-  {ic:'🌳', name:'鲁迅公园',     addr:'虹口区四川北路2288号', dist:'1.8km'},
-  {ic:'🍜', name:'老弄堂面馆',   addr:'黄浦区天津路',         dist:'3.5km'},
-  {ic:'🌊', name:'滨江步道',     addr:'浦东新区民生路渡口',   dist:'5.1km'},
+/* ================= 地点选择：搜索 + 历史记录 ================= */
+const BUILTIN_LOCS = [
+  {ic:'🏠', name:'家'}, {ic:'🏢', name:'公司'}, {ic:'🏫', name:'学校'},
 ];
-$('poiList').innerHTML = POIS.map((p,i)=>`
-  <div class="poi" data-i="${i}">
-    <div class="p-ic">${p.ic}</div>
-    <div><div class="p-name">${p.name}</div><div class="p-addr">${p.addr}</div></div>
-    <div class="p-dist">${p.dist}</div>
-  </div>`).join('');
-$('poiList').querySelectorAll('.poi').forEach(el=>{
-  el.addEventListener('click',()=>pickPoi(POIS[+el.dataset.i]));
+/* 按名称关键词猜个图标，猜不中就用 📍 */
+function locIcon(n){
+  if(/家|宅|宿舍/.test(n)) return '🏠';
+  if(/公司|办公|上班|office/i.test(n)) return '🏢';
+  if(/学校|校园|大学|图书馆/.test(n)) return '🏫';
+  if(/咖啡|cafe/i.test(n)) return '☕️';
+  if(/书店|书吧/.test(n)) return '📚';
+  if(/公园|植物园|动物园/.test(n)) return '🌳';
+  if(/江|河|湖|海|滩|渡|湾|桥/.test(n)) return '🌊';
+  if(/山|峰|岭|寺|庙/.test(n)) return '⛰️';
+  if(/面|饭|餐|食|烤|火锅|烧烤| bakery|烘焙|面包|小吃|酒|茶/i.test(n)) return '🍜';
+  if(/健身|运动|球|跑|瑜伽|gym/i.test(n)) return '🏃';
+  if(/店|商场|百货|超市|街|市集/.test(n)) return '🛍️';
+  if(/医院|诊所|药/.test(n)) return '🏥';
+  if(/站|机场|地铁|高铁|火车|长途/.test(n)) return '🚉';
+  if(/影院|电影|剧场|剧院|展览|博物馆|美术馆/.test(n)) return '🎬';
+  return '📍';
+}
+/* 汇总所有日记里用过的地点（文字内联 + 片段属性），按最近使用排序 */
+function collectLocHistory(){
+  const map = new Map();
+  const add = (name, addr, t) => {
+    const k = (name||'').trim(); if(!k) return;
+    const ts = t ? +new Date(t) : 0;
+    const cur = map.get(k);
+    if(cur){ cur.count++; cur.last = Math.max(cur.last, ts); if(!cur.addr && addr) cur.addr = (addr||'').trim(); }
+    else map.set(k, {name:k, addr:(addr||'').trim(), count:1, last:ts});
+  };
+  diaries.forEach(d => (d.entries||[]).forEach(e => {
+    if(e.loc) add(e.loc.name, e.loc.addr, e.time);
+    if(e.type==='text' && e.html) extractLocs(e.html).forEach(l => add(l.name, l.addr, e.time));
+  }));
+  return [...map.values()].sort((a,b)=> b.last - a.last || b.count - a.count);
+}
+let poiRows = []; /* 当前列表渲染的数据，点击时按索引取 */
+function renderPoiList(q){
+  q = (q||'').trim();
+  const ql = q.toLowerCase();
+  const hist = collectLocHistory();
+  const rows = [];
+  poiRows = rows; /* 先引用：行渲染时按 rows.length 生成索引 */
+  let html = '';
+  if(q){
+    /* 搜索词本身就是新地点：置顶一键创建 */
+    if(!hist.some(p => p.name.toLowerCase() === ql)){
+      rows.push({name:q, addr:'', isNew:true});
+      html += `<div class="poi poi-new" data-i="0"><div class="p-ic">✨</div>
+        <div><div class="p-name">使用「${esc(q)}」</div><div class="p-addr">作为新地点插入</div></div></div>`;
+    }
+    const hits = hist.filter(p => p.name.toLowerCase().includes(ql) || p.addr.toLowerCase().includes(ql));
+    hits.forEach(p => { rows.push(p);
+      html += poiRowHtml(locIcon(p.name), p.name, p.addr, `${p.count} 次`); });
+    if(rows.length === 0) html += `<div class="poi-empty">没有找到「${esc(q)}」相关地点<br>上面可一键作为新地点插入</div>`;
+  } else {
+    if(hist.length){
+      html += `<div class="poi-sec">最近使用</div>`;
+      hist.slice(0, 20).forEach(p => { rows.push(p);
+        html += poiRowHtml(locIcon(p.name), p.name, p.addr, `${p.count} 次`); });
+    }
+    const extras = BUILTIN_LOCS.filter(b => !hist.some(p => p.name === b.name));
+    if(extras.length){
+      html += `<div class="poi-sec">常用</div>`;
+      extras.forEach(b => { rows.push({name:b.name, addr:''});
+        html += poiRowHtml(b.ic, b.name, '', '常用'); });
+    }
+    if(!hist.length && !extras.length) html += `<div class="poi-empty">在上方输入地点名即可创建<br>用过的地点会自动出现在这里</div>`;
+  }
+  $('poiList').innerHTML = html;
+}
+function poiRowHtml(ic, name, addr, dist){
+  return `<div class="poi" data-i="${poiRows.length}">
+    <div class="p-ic">${ic}</div>
+    <div><div class="p-name">${esc(name)}</div>${addr?`<div class="p-addr">${esc(addr)}</div>`:''}</div>
+    <div class="p-dist">${dist}</div>
+  </div>`;
+}
+$('poiList').addEventListener('click', e => {
+  const el = e.target.closest('.poi'); if(!el) return;
+  pickPoi(poiRows[+el.dataset.i]);
+});
+$('poiSearch').addEventListener('input', () => {
+  const v = $('poiSearch').value;
+  $('poiSearchClear').hidden = !v;
+  renderPoiList(v);
+});
+$('poiSearchClear').addEventListener('click', () => {
+  $('poiSearch').value = ''; $('poiSearchClear').hidden = true;
+  renderPoiList(''); $('poiSearch').focus();
+});
+$('toolPin').addEventListener('click',()=>{
+  if(recState!=='idle'){ toast('正在录音，先停止录音再插入地点'); return; }
+  $('poiSearch').value = ''; $('poiSearchClear').hidden = true;
+  renderPoiList('');
+  $('mapMask').classList.add('show');
 });
 $('mapMask').addEventListener('click',e=>{
   if(e.target===$('mapMask')) $('mapMask').classList.remove('show');
