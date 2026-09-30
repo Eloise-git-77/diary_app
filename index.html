@@ -381,6 +381,11 @@ body.pwa .agent-input{ padding:10px 14px calc(26px + env(safe-area-inset-bottom,
 .me-item .m-tt{ flex:1; }
 .me-item .m-nm{ font-size:14.5px; }
 .me-item .m-ds{ font-size:11.5px; color:var(--ink2); margin-top:3px; }
+.loc-cfg{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+.loc-cfg input{ width:100%; background:var(--card); border:1px solid var(--line); outline:none;
+  border-radius:12px; padding:10px 14px; font-size:13.5px; color:var(--ink); font-family:inherit; }
+.loc-cfg input:focus{ border-color:var(--primary); }
+.loc-cfg input::placeholder{ color:var(--ink3); }
 .switch{ width:46px; height:27px; border-radius:99px; background:var(--green); position:relative; transition:background .2s; flex-shrink:0; }
 .switch.off{ background:#DDD6CB; }
 .screen.dark .switch.off{ background:#3A342B; }
@@ -658,6 +663,19 @@ body.pwa .screen{ border-radius:0; height:100%; }
             </div>
             <div class="m-tt"><div class="m-nm">自动保存到本机</div><div class="m-ds" id="lastSync">上次保存：刚刚 · 换手机前请先「导出备份」</div></div>
             <div class="switch" id="icloudSwitch"></div>
+          </div>
+          <div class="me-item">
+            <div class="m-ic">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="m-tt">
+              <div class="m-nm">真实地点搜索（高德地图）</div>
+              <div class="m-ds">填写 Key 后，插入地点可搜索真实地址 · Key 只保存在本机，不会上传<br>获取：lbs.amap.com → 控制台 → 创建应用 → 添加 Key（服务平台选「Web服务」）</div>
+              <div class="loc-cfg">
+                <input id="amapKeyInput" placeholder="高德 Web服务 Key（选填）" autocomplete="off" spellcheck="false">
+                <input id="amapCityInput" placeholder="默认城市，如：上海（选填，提高搜索准确度）" autocomplete="off">
+              </div>
+            </div>
           </div>
           <div class="me-item">
             <div class="m-ic">
@@ -961,8 +979,8 @@ const THEMES = {
   plum:{       name:'藕紫',   p:'#9B6BB3', s:'#F1E8F5', d:'#7F5495', sd:'#332540', dd:'#C79BDD' },
   rose:{       name:'樱粉',   p:'#C96A82', s:'#F7E6EB', d:'#A85468', sd:'#3C242C', dd:'#E594AA' },
 };
-const settings = { theme:'terracotta', darkMode:'system', nightAuto:false, bgLight:'cream', bgDark:'charcoal' };
-const APP_VERSION = 'v1.5'; /* 「我的」页展示 · 改动时同步更新 */
+const settings = { theme:'terracotta', darkMode:'system', nightAuto:false, bgLight:'cream', bgDark:'charcoal', amapKey:'', amapCity:'' };
+const APP_VERSION = 'v1.6'; /* 「我的」页展示 · 改动时同步更新 */
 let profile = { name:'柚子', emoji:'柚' }; /* 本机资料（网页版无账号，随备份迁移） */
 const sysDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -2085,7 +2103,46 @@ function collectLocHistory(){
   return [...map.values()].sort((a,b)=> b.last - a.last || b.count - a.count);
 }
 let poiRows = []; /* 当前列表渲染的数据，点击时按索引取 */
-function renderPoiList(q){
+/* ---- 高德真实地点搜索（JSONP，无跨域限制）---- */
+function amapAddrOf(p){
+  const parts = [p.pname, p.cityname, p.adname, p.address]
+    .filter(x => typeof x === 'string' && x);
+  return [...new Set(parts)].join('') .slice(0, 60);
+}
+function amapPlaceSearch(kw){
+  return new Promise((resolve, reject)=>{
+    const cb = '__amapCb' + Date.now() + Math.floor(Math.random()*1e5);
+    const s = document.createElement('script');
+    const cleanup = ()=>{ try{ delete window[cb]; }catch(e){ window[cb] = undefined; } s.remove(); };
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('搜索超时')); }, 6000);
+    window[cb] = data=>{
+      clearTimeout(timer); cleanup();
+      if(data && data.status === '1' && Array.isArray(data.pois)) resolve(data.pois);
+      else reject(new Error((data && data.info) || '搜索失败'));
+    };
+    const q = new URLSearchParams({ key: settings.amapKey, keywords: kw, offset: '15', page: '1', extensions: 'base' });
+    if(settings.amapCity) q.set('city', settings.amapCity);
+    s.src = 'https://restapi.amap.com/v3/place/text?' + q.toString() + '&callback=' + cb;
+    s.onerror = ()=>{ clearTimeout(timer); cleanup(); reject(new Error('网络错误')); };
+    document.head.appendChild(s);
+  });
+}
+let poiSeq = 0, poiDebounce = null, amapLastErrAt = 0;
+function fetchRemotePois(kw){
+  const seq = ++poiSeq;
+  amapPlaceSearch(kw).then(pois=>{
+    if(seq !== poiSeq) return; /* 已有更新的输入，丢弃过期结果 */
+    if(!$('poiSearch').value.trim()) return; /* 用户已清空 */
+    renderPoiList($('poiSearch').value, pois);
+  }).catch(err=>{
+    if(seq !== poiSeq) return;
+    if(Date.now() - amapLastErrAt > 10000){ /* 错误提示限流，避免每次按键都弹 */
+      amapLastErrAt = Date.now();
+      toast(`高德搜索失败：${err.message} · 请检查 Key 是否正确`);
+    }
+  });
+}
+function renderPoiList(q, remote){
   q = (q||'').trim();
   const ql = q.toLowerCase();
   const hist = collectLocHistory();
@@ -2094,15 +2151,28 @@ function renderPoiList(q){
   let html = '';
   if(q){
     /* 搜索词本身就是新地点：置顶一键创建 */
-    if(!hist.some(p => p.name.toLowerCase() === ql)){
+    if(!hist.some(p => p.name.toLowerCase() === ql) && !(remote||[]).some(p => p.name === q)){
       rows.push({name:q, addr:'', isNew:true});
       html += `<div class="poi poi-new" data-i="0"><div class="p-ic">✨</div>
         <div><div class="p-name">使用「${esc(q)}」</div><div class="p-addr">作为新地点插入</div></div></div>`;
     }
-    const hits = hist.filter(p => p.name.toLowerCase().includes(ql) || p.addr.toLowerCase().includes(ql));
+    if(remote && remote.length){
+      html += `<div class="poi-sec">真实地点 · 高德地图</div>`;
+      remote.forEach(p => {
+        const addr = amapAddrOf(p);
+        rows.push({name:p.name, addr});
+        html += poiRowHtml(locIcon(p.name + ' ' + (p.type||'')), p.name, addr, '🗺️');
+      });
+    }
+    const remoteNames = new Set((remote||[]).map(p => p.name));
+    const hits = hist.filter(p => !remoteNames.has(p.name) &&
+      (p.name.toLowerCase().includes(ql) || p.addr.toLowerCase().includes(ql)));
+    if(hits.length) html += `<div class="poi-sec">我的历史</div>`;
     hits.forEach(p => { rows.push(p);
       html += poiRowHtml(locIcon(p.name), p.name, p.addr, `${p.count} 次`); });
-    if(rows.length === 0) html += `<div class="poi-empty">没有找到「${esc(q)}」相关地点<br>上面可一键作为新地点插入</div>`;
+    if(rows.length === 0){
+      html += `<div class="poi-empty">没有找到「${esc(q)}」${settings.amapKey ? '' : '<br>在「我的 → 真实地点搜索」配置高德 Key 可搜真实地址'}</div>`;
+    }
   } else {
     if(hist.length){
       html += `<div class="poi-sec">最近使用</div>`;
@@ -2133,10 +2203,15 @@ $('poiList').addEventListener('click', e => {
 $('poiSearch').addEventListener('input', () => {
   const v = $('poiSearch').value;
   $('poiSearchClear').hidden = !v;
-  renderPoiList(v);
+  renderPoiList(v); /* 本地（自建+历史）立即渲染 */
+  if(poiDebounce){ clearTimeout(poiDebounce); poiDebounce = null; }
+  if(v.trim() && settings.amapKey){
+    poiDebounce = setTimeout(()=>fetchRemotePois(v.trim()), 350); /* 高德搜索防抖 */
+  }
 });
 $('poiSearchClear').addEventListener('click', () => {
   $('poiSearch').value = ''; $('poiSearchClear').hidden = true;
+  poiSeq++; /* 作废进行中的远程请求 */
   renderPoiList(''); $('poiSearch').focus();
 });
 $('toolPin').addEventListener('click',()=>{
@@ -2358,6 +2433,9 @@ $('nightSwitch').addEventListener('click',e=>{
   applyTheme();
   toast(settings.nightAuto?'夜间自动深色已开启（22:00–7:00）':'夜间自动深色已关闭');
 });
+/* 高德地点搜索配置：Key 与城市存本机（随备份迁移），不进公开仓库 */
+$('amapKeyInput').addEventListener('input', e=>{ settings.amapKey = e.target.value.trim(); persist(); });
+$('amapCityInput').addEventListener('input', e=>{ settings.amapCity = e.target.value.trim(); persist(); });
 document.querySelectorAll('.radio-g .rg[data-eng]').forEach(r=>{
   r.addEventListener('click',()=>{
     document.querySelectorAll('.radio-g .rg[data-eng]').forEach(x=>x.classList.remove('sel'));
@@ -2667,6 +2745,9 @@ $('clearData').addEventListener('click',()=>{
 if(restore()){
   $('dataInfo').textContent = `已自动保存 ${diaries.length} 篇日记 · 断网/重启不丢失`;
 }
+/* 恢复后再回填高德配置输入框（restore 会覆盖 settings） */
+$('amapKeyInput').value = settings.amapKey || '';
+$('amapCityInput').value = settings.amapCity || '';
 /* 视口真实高度 → CSS 变量：兼容微信内置浏览器/老 iOS 等不支持 dvh 的环境，底栏不再被地址栏挡住 */
 function setAppH(){
   document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
