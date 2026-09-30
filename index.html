@@ -514,6 +514,9 @@ body.pwa .screen{ border-radius:0; height:100%; }
 .poi.poi-new .p-name{ color:var(--primary-deep); font-weight:600; }
 .poi-empty{ padding:22px 6px; text-align:center; font-size:12.5px; color:var(--ink3); line-height:1.8; }
 .poi-sec{ font-size:11px; color:var(--ink3); letter-spacing:1px; padding:10px 6px 4px; }
+.poi-locate{ display:flex; align-items:center; justify-content:center; gap:6px; padding:11px; border-radius:12px;
+  background:var(--primary-soft); color:var(--primary-deep); font-size:13.5px; font-weight:600; margin-bottom:4px; }
+.poi-locate.busy{ opacity:.65; pointer-events:none; }
 .poi .p-ic{ width:36px; height:36px; border-radius:12px; background:var(--card); display:flex;
   align-items:center; justify-content:center; font-size:17px; box-shadow:var(--shadow); flex-shrink:0; }
 .poi .p-name{ font-size:14.5px; }
@@ -980,7 +983,7 @@ const THEMES = {
   rose:{       name:'樱粉',   p:'#C96A82', s:'#F7E6EB', d:'#A85468', sd:'#3C242C', dd:'#E594AA' },
 };
 const settings = { theme:'terracotta', darkMode:'system', nightAuto:false, bgLight:'cream', bgDark:'charcoal', amapKey:'', amapCity:'' };
-const APP_VERSION = 'v1.6'; /* 「我的」页展示 · 改动时同步更新 */
+const APP_VERSION = 'v1.7'; /* 「我的」页展示 · 改动时同步更新 */
 let profile = { name:'柚子', emoji:'柚' }; /* 本机资料（网页版无账号，随备份迁移） */
 const sysDark = window.matchMedia('(prefers-color-scheme: dark)');
 
@@ -2128,6 +2131,93 @@ function amapPlaceSearch(kw){
   });
 }
 let poiSeq = 0, poiDebounce = null, amapLastErrAt = 0;
+let curLocData = null, locating = false; /* 定位结果与进行状态 */
+/* 浏览器定位是 WGS84 坐标，高德用 GCJ02：境内需转换，境外原样 */
+function wgs2gcj(lng, lat){
+  const inCN = lng > 72.004 && lng < 137.8347 && lat > 0.8293 && lat < 55.8271;
+  if(!inCN) return [lng, lat];
+  const PI = 3.14159265358979324, a = 6378245.0, ee = 0.00669342162296594323;
+  const tLat = (x, y) => {
+    let r = -100 + 2*x + 3*y + 0.2*y*y + 0.1*x*y + 0.2*Math.sqrt(Math.abs(x));
+    r += (20*Math.sin(6*x*PI) + 20*Math.sin(2*x*PI)) * 2/3;
+    r += (20*Math.sin(y*PI) + 40*Math.sin(y/3*PI)) * 2/3;
+    r += (160*Math.sin(y/12*PI) + 320*Math.sin(y*PI/30)) * 2/3;
+    return r;
+  };
+  const tLng = (x, y) => {
+    let r = 300 + x + 2*y + 0.1*x*x + 0.1*x*y + 0.1*Math.sqrt(Math.abs(x));
+    r += (20*Math.sin(6*x*PI) + 20*Math.sin(2*x*PI)) * 2/3;
+    r += (20*Math.sin(x*PI) + 40*Math.sin(x/3*PI)) * 2/3;
+    r += (150*Math.sin(x/12*PI) + 300*Math.sin(x/30*PI)) * 2/3;
+    return r;
+  };
+  let dLat = tLat(lng-105, lat-35), dLng = tLng(lng-105, lat-35);
+  const radLat = lat/180*PI;
+  let magic = Math.sin(radLat); magic = 1 - ee*magic*magic;
+  const sq = Math.sqrt(magic);
+  dLat = (dLat*180) / ((a*(1-ee))/(magic*sq)*PI);
+  dLng = (dLng*180) / (a/sq*Math.cos(radLat)*PI);
+  return [lng+dLng, lat+dLat];
+}
+/* 逆地理编码：经纬度 → 真实地址 + 附近地点 */
+function amapRegeo(lng, lat){
+  return new Promise((resolve, reject)=>{
+    const cb = '__amapRc' + Date.now() + Math.floor(Math.random()*1e5);
+    const s = document.createElement('script');
+    const cleanup = ()=>{ try{ delete window[cb]; }catch(e){ window[cb] = undefined; } s.remove(); };
+    const timer = setTimeout(()=>{ cleanup(); reject(new Error('超时')); }, 8000);
+    window[cb] = data=>{
+      clearTimeout(timer); cleanup();
+      if(data && data.status === '1' && data.regeocode) resolve(data.regeocode);
+      else reject(new Error((data && data.info) || '服务异常'));
+    };
+    const q = new URLSearchParams({ key: settings.amapKey, location: `${lng.toFixed(6)},${lat.toFixed(6)}`,
+      extensions: 'all', radius: '300', offset: '8' });
+    s.src = 'https://restapi.amap.com/v3/geocode/regeo?' + q.toString() + '&callback=' + cb;
+    s.onerror = ()=>{ clearTimeout(timer); cleanup(); reject(new Error('网络错误')); };
+    document.head.appendChild(s);
+  });
+}
+function locateCurrent(){
+  if(locating) return;
+  if(!settings.amapKey){ toast('定位需先配置高德 Key：「我的 → 真实地点搜索」'); return; }
+  if(!navigator.geolocation){ toast('当前浏览器不支持定位'); return; }
+  locating = true; renderPoiList('');
+  navigator.geolocation.getCurrentPosition(pos => {
+    const [lng, lat] = wgs2gcj(pos.coords.longitude, pos.coords.latitude);
+    amapRegeo(lng, lat).then(rc => {
+      locating = false;
+      const pois = (rc.pois||[]).slice(0, 6).map(p => ({
+        name: p.name,
+        addr: (typeof p.address === 'string' && p.address) ? p.address : rc.formatted_address
+      }));
+      curLocData = {
+        name: pois[0] ? pois[0].name : String(rc.formatted_address||'当前位置').slice(0, 24),
+        addr: rc.formatted_address, pois
+      };
+      /* 默认城市为空时自动补上（直辖市 city 为空数组时用省名） */
+      if(!settings.amapCity){
+        const ac = rc.addressComponent || {};
+        const city = Array.isArray(ac.city) ? ac.city[0] : ac.city;
+        const prov = Array.isArray(ac.province) ? ac.province[0] : ac.province;
+        const fill = (typeof city === 'string' && city) || (typeof prov === 'string' && prov) || '';
+        if(fill){
+          settings.amapCity = fill; persist();
+          $('amapCityInput').value = fill;
+          toast(`已自动设置默认城市：${fill}`, true);
+        }
+      }
+      renderPoiList('');
+    }).catch(err => {
+      locating = false; renderPoiList('');
+      toast(`定位失败：${err.message} · 请检查 Key 或网络`);
+    });
+  }, err => {
+    locating = false; renderPoiList('');
+    toast(err.code === 1 ? '你拒绝了定位授权 · 可在系统设置中允许后重试'
+      : err.code === 3 ? '定位超时，请到开阔处重试' : '获取位置失败，请重试');
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+}
 function fetchRemotePois(kw){
   const seq = ++poiSeq;
   amapPlaceSearch(kw).then(pois=>{
@@ -2174,6 +2264,21 @@ function renderPoiList(q, remote){
       html += `<div class="poi-empty">没有找到「${esc(q)}」${settings.amapKey ? '' : '<br>在「我的 → 真实地点搜索」配置高德 Key 可搜真实地址'}</div>`;
     }
   } else {
+    /* 定位区：入口 / 进行中 / 结果（含附近地点） */
+    if(locating){
+      html += `<div class="poi-locate busy">📡 正在定位…</div>`;
+    } else if(curLocData){
+      html += `<div class="poi-sec">📍 当前位置</div>`;
+      rows.push({name: curLocData.name, addr: curLocData.addr});
+      html += poiRowHtml('📍', curLocData.name, curLocData.addr, '当前位置');
+      if(curLocData.pois.length){
+        html += `<div class="poi-sec">附近地点</div>`;
+        curLocData.pois.forEach(p => { rows.push(p);
+          html += poiRowHtml(locIcon(p.name), p.name, p.addr, '附近'); });
+      }
+    } else {
+      html += `<div class="poi-locate">📍 定位当前位置${settings.amapKey ? '' : '（需配置高德 Key）'}</div>`;
+    }
     if(hist.length){
       html += `<div class="poi-sec">最近使用</div>`;
       hist.slice(0, 20).forEach(p => { rows.push(p);
@@ -2197,6 +2302,8 @@ function poiRowHtml(ic, name, addr, dist){
   </div>`;
 }
 $('poiList').addEventListener('click', e => {
+  const locBtn = e.target.closest('.poi-locate');
+  if(locBtn){ locateCurrent(); return; }
   const el = e.target.closest('.poi'); if(!el) return;
   pickPoi(poiRows[+el.dataset.i]);
 });
@@ -2217,6 +2324,7 @@ $('poiSearchClear').addEventListener('click', () => {
 $('toolPin').addEventListener('click',()=>{
   if(recState!=='idle'){ toast('正在录音，先停止录音再插入地点'); return; }
   $('poiSearch').value = ''; $('poiSearchClear').hidden = true;
+  curLocData = null; locating = false; /* 位置可能过时，每次打开重新定 */
   renderPoiList('');
   $('mapMask').classList.add('show');
 });
