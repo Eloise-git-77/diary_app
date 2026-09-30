@@ -1,0 +1,2665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>拾光日记</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="theme-color" content="#C4703F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="拾光日记">
+<style>
+/* ============ 基础 ============ */
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ height:100%; overflow:hidden; overscroll-behavior:none; }
+body{
+  position:fixed; inset:0;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","SF Pro SC","Helvetica Neue",sans-serif;
+  background:#EFEAE2; color:#2C2925;
+  display:flex; align-items:center; justify-content:center; gap:48px;
+  padding:16px 20px; min-height:100vh;
+  touch-action:manipulation; /* 禁双击缩放 */
+  -webkit-user-select:none; user-select:none; /* 禁长按选中文字 */
+}
+/* 可编辑区域恢复文字选择 */
+.e-text, .d-text.editing, .t-body.editing-shadow, [contenteditable="true"], input, textarea{
+  -webkit-user-select:text; user-select:text; -webkit-touch-callout:default;
+}
+button{ font-family:inherit; border:none; background:none; cursor:pointer; color:inherit; }
+::-webkit-scrollbar{ display:none; }
+
+/* ============ 主题变量（浅色默认 / .dark 深色） ============ */
+.screen{
+  --bg:#F6F3EE; --card:#FFFFFF; --glass:rgba(250,248,244,.93);
+  --ink:#2C2925; --ink2:#8F877D; --ink3:#BCB4AA;
+  --primary:#C4703F; --primary-soft:#F6E7DA; --primary-deep:#A85B31;
+  --green:#3E9B6F; --green-soft:#E4F3EB;
+  --red:#E5484D; --red-soft:#FDEBEC;
+  --line:#ECE7DF; --radius:20px;
+  --shadow:0 2px 10px rgba(60,45,30,.06);
+}
+.screen.dark{
+  --bg:#191613; --card:#242019; --glass:rgba(24,21,17,.93);
+  --ink:#EDE7DC; --ink2:#9A9184; --ink3:#6B645A;
+  --primary-soft:#3A2C20; --primary-deep:#E09B62;
+  --green:#5FB98C; --green-soft:#22352B;
+  --red:#E36A6E; --red-soft:#3E2622;
+  --line:#332E26;
+  --shadow:0 2px 10px rgba(0,0,0,.35);
+}
+
+/* ============ 桌面侧边说明（正式版隐藏，仅保留手机视图） ============ */
+.side-note{ display:none; }
+.side-note h1{ font-size:19px; margin-bottom:4px; }
+.side-note .sub{ font-size:12.5px; color:#8F877D; margin-bottom:16px; }
+.side-note p.desc{ font-size:13px; color:#8F877D; line-height:1.7; margin-bottom:16px; }
+.side-note ul{ list-style:none; }
+.side-note li{ font-size:13px; line-height:1.6; padding:7px 0; border-top:1px dashed #ECE7DF; }
+.side-note li b{ color:#A85B31; font-weight:600; }
+.side-note .note{ margin-top:14px; font-size:12px; color:#BCB4AA; line-height:1.7; background:#F6F3EE; border-radius:12px; padding:10px 12px; }
+/* 手机/窄屏：全屏铺满（不再显示手机壳和假状态栏） */
+@media (max-width:960px){
+  body{ padding:0; gap:0; }
+  .phone{ width:100vw; max-width:520px; height:100vh; height:100dvh; border-radius:0; box-shadow:none; padding:0; zoom:1 !important; }
+  .screen{ border-radius:0; height:100dvh; padding-top:env(safe-area-inset-top, 0px); }
+  .statusbar{ display:none; }
+  /* 底部：导航栏加高避开 Home 横条，内容底部留白同步增加 */
+  .tabbar{ height:calc(86px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }
+  .app-body{ padding-bottom:calc(120px + env(safe-area-inset-bottom, 0px)); }
+  /* 弹层页顶部避开刘海/灵动岛 */
+  .sheet-view{ top:env(safe-area-inset-top, 0px); }
+  .compose-tools{ padding:12px 6px calc(30px + env(safe-area-inset-bottom, 0px)); }
+  .agent-input{ padding:10px 14px calc(26px + env(safe-area-inset-bottom, 0px)); }
+}
+/* 主屏 App 模式：同样适配（即使宽屏设备全屏运行） */
+body.pwa .screen{ padding-top:env(safe-area-inset-top, 0px); }
+body.pwa .tabbar{ height:calc(86px + env(safe-area-inset-bottom, 0px)); padding-bottom:env(safe-area-inset-bottom, 0px); }
+body.pwa .app-body{ padding-bottom:calc(120px + env(safe-area-inset-bottom, 0px)); }
+body.pwa .sheet-view{ top:env(safe-area-inset-top, 0px); }
+body.pwa .compose-tools{ padding:12px 6px calc(30px + env(safe-area-inset-bottom, 0px)); }
+body.pwa .agent-input{ padding:10px 14px calc(26px + env(safe-area-inset-bottom, 0px)); }
+
+/* ============ 手机框 ============ */
+.phone{
+  width:390px; height:844px; flex-shrink:0;
+  background:#141210; border-radius:54px; padding:12px;
+  box-shadow:0 24px 60px rgba(40,25,10,.35), inset 0 0 3px rgba(255,255,255,.2);
+}
+.screen{
+  position:relative; width:100%; height:100%;
+  background:var(--bg); border-radius:42px; overflow:hidden;
+  display:flex; flex-direction:column; color:var(--ink);
+  transition:background .3s;
+}
+.statusbar{ height:48px; flex-shrink:0; display:flex; align-items:center; justify-content:space-between;
+  padding:0 30px; font-size:14px; font-weight:600; z-index:5; }
+.statusbar .right{ display:flex; align-items:center; gap:5px; font-size:12px; color:var(--ink2); }
+
+/* ============ 视图通用 ============ */
+.view{ flex:1; display:none; flex-direction:column; overflow:hidden; }
+.view.active{ display:flex; }
+.app-body{ flex:1; overflow-y:auto; overscroll-behavior:contain; padding:4px 18px 120px; }
+
+/* ============ 首页 ============ */
+.home-head{ display:flex; align-items:center; justify-content:space-between; padding:6px 4px 12px; }
+.home-head h2{ font-size:24px; font-weight:700; letter-spacing:.5px; }
+.cloud-btn{ display:flex; align-items:center; gap:7px; background:var(--card); padding:8px 13px;
+  border-radius:99px; box-shadow:var(--shadow); font-size:12.5px; color:var(--ink2); }
+.cloud-btn .dot{ width:7px; height:7px; border-radius:50%; background:var(--green); }
+.cloud-btn .dot.syncing{ background:#E8B44C; animation:pulse 1s infinite; }
+@keyframes pulse{ 50%{ opacity:.3; } }
+
+.searchbar{ display:flex; align-items:center; gap:8px; background:var(--card); border-radius:14px;
+  padding:11px 14px; color:var(--ink3); font-size:14px; margin-bottom:12px; }
+
+/* 标签筛选条 */
+.filter-row{ display:flex; gap:8px; overflow-x:auto; padding:2px 2px 10px; margin:0 -2px; }
+.f-chip{ flex-shrink:0; display:inline-flex; align-items:center; gap:5px; font-size:12.5px;
+  color:var(--ink2); background:var(--card); padding:7px 13px; border-radius:99px; box-shadow:var(--shadow); }
+.f-chip.sel{ background:var(--primary); color:#fff; font-weight:600; }
+
+.month-label{ font-size:13px; font-weight:600; color:var(--ink2); margin:18px 4px 10px; letter-spacing:1px; }
+
+/* 日记行 */
+.d-row{ display:flex; gap:12px; margin-bottom:14px; }
+.d-date{ width:44px; flex-shrink:0; padding-top:6px; text-align:center; }
+.d-date .w{ font-size:12px; color:var(--ink2); }
+.d-date .n{ font-size:22px; font-weight:700; line-height:1.2; }
+.d-card{ flex:1; background:var(--card); border-radius:var(--radius); padding:15px 16px;
+  box-shadow:var(--shadow); cursor:pointer; transition:transform .15s; }
+.d-card:active{ transform:scale(.98); }
+.d-card .sum{ font-size:14.5px; line-height:1.6; color:var(--ink);
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.d-meta{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+.chip{ display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--ink2);
+  background:var(--bg); padding:4px 9px; border-radius:99px; }
+.chip.ok{ color:var(--green); background:var(--green-soft); }
+.chip.warn{ color:var(--red); background:var(--red-soft); }
+.chip.tag{ font-weight:500; }
+
+/* ============ Tab 栏 ============ */
+.tabbar{ position:absolute; left:0; right:0; bottom:0; height:86px; z-index:20;
+  background:var(--glass); backdrop-filter:blur(16px); border-top:1px solid var(--line);
+  display:flex; align-items:flex-start; justify-content:space-around; padding-top:10px;
+  transition:transform .3s; }
+.tabbar.hidden{ transform:translateY(100%); }
+.tab-btn{ display:flex; flex-direction:column; align-items:center; gap:3px; font-size:11px; color:var(--ink3); width:70px; }
+.tab-btn.active{ color:var(--primary); }
+.tab-btn .t-ic{ width:24px; height:24px; }
+.fab{ width:56px; height:56px; border-radius:50%; margin-top:-24px;
+  background:linear-gradient(140deg, var(--primary), var(--primary-deep)); color:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 8px 20px rgba(0,0,0,.28); transition:transform .15s; }
+.fab:active{ transform:scale(.92); }
+
+/* ============ 弹层视图 ============ */
+.sheet-view{ position:absolute; inset:0; z-index:30; background:var(--bg);
+  display:flex; flex-direction:column;
+  transform:translateY(100%); transition:transform .35s cubic-bezier(.32,.72,.25,1); }
+.sheet-view.active{ transform:translateY(0); }
+#view-compose{ z-index:35; } /* 新建页需盖住详情页（"再记一笔"从详情进入） */
+.sheet-head{ display:flex; align-items:center; justify-content:space-between;
+  padding:10px 16px 6px; flex-shrink:0; }
+.sheet-head .ttl{ font-size:16px; font-weight:600; }
+.btn-ghost{ font-size:14.5px; color:var(--ink2); padding:6px 8px; }
+.btn-save{ font-size:14px; font-weight:600; color:#fff; background:var(--primary);
+  padding:8px 18px; border-radius:99px; transition:opacity .2s; }
+.btn-save:disabled{ opacity:.5; }
+.btn-save.saving{ background:#B0A79B; }
+
+/* ============ 新建：属性行 ============ */
+.compose-date{ text-align:center; font-size:12.5px; color:var(--ink2); }
+.attr-rows{ padding:2px 4px 10px; flex-shrink:0; }
+.mood-row{ display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; }
+.mood-row .sep{ width:1px; height:16px; background:var(--line); margin:0 3px; }
+.pill{ width:33px; height:33px; border-radius:50%; background:var(--card); font-size:16px;
+  display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);
+  transition:transform .15s, background .2s; }
+.pill.sel{ background:var(--primary-soft); transform:scale(1.12); box-shadow:0 0 0 2px var(--primary); }
+.tag-row{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-top:10px; min-height:30px; }
+.tag-add{ display:inline-flex; align-items:center; gap:4px; font-size:12.5px; color:var(--primary-deep);
+  background:var(--primary-soft); padding:6px 12px; border-radius:99px; }
+.tag-sel{ display:inline-flex; align-items:center; gap:5px; font-size:12.5px; font-weight:500;
+  padding:6px 11px; border-radius:99px; }
+.tag-sel .x{ font-size:13px; opacity:.6; padding:0 1px; }
+
+/* ============ 片段流（新建 & 详情共用） ============ */
+.entry-flow{ flex:1; overflow-y:auto; overscroll-behavior:contain; padding:4px 6px 24px; }
+.entry-blk{ position:relative; padding:6px 0 18px 56px;
+  -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+.entry-blk::before{ content:''; position:absolute; left:23px; top:14px; width:7px; height:7px;
+  border-radius:50%; background:var(--primary); opacity:.85; }
+.entry-blk::after{ content:''; position:absolute; left:26px; top:26px; bottom:2px; width:1px; background:var(--line); }
+.entry-blk:last-child::after{ display:none; }
+.e-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
+.e-time{ font-size:11.5px; font-weight:600; color:var(--ink2); font-variant-numeric:tabular-nums;
+  background:var(--card); padding:2px 9px; border-radius:99px; box-shadow:var(--shadow); }
+.e-del{ font-size:11.5px; color:var(--ink3); padding:3px 8px; border-radius:99px; }
+.e-del:hover{ color:var(--red); }
+.e-text{ min-height:90px; font-size:16px; line-height:1.9; outline:none; border-radius:8px; padding:2px 4px; }
+.e-text:empty::before{ content:attr(data-ph); color:var(--ink3); }
+.e-text:focus{ box-shadow:0 1px 0 var(--line); }
+.d-text{ font-size:15.5px; line-height:1.9; white-space:pre-wrap; }
+.d-text.editing{ outline:1.5px dashed var(--primary); outline-offset:5px; border-radius:4px;
+  -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+.add-more{ width:100%; margin:20px 0 6px; font-size:14px; font-weight:600; color:var(--primary-deep);
+  background:var(--primary-soft); padding:13px 0; border-radius:14px; }
+
+/* 内联地点 */
+.inline-loc{ display:inline-flex; align-items:center; background:var(--primary-soft); color:var(--primary-deep);
+  border-radius:99px; padding:1px 9px; font-size:13px; margin:0 2px; vertical-align:baseline; white-space:nowrap; }
+
+/* ============ 媒体块 ============ */
+.audio-card{ display:flex; align-items:center; gap:13px; background:var(--card);
+  border-radius:16px; padding:11px 14px; box-shadow:var(--shadow); }
+.play-btn{ width:42px; height:42px; border-radius:50%; background:var(--primary); color:#fff; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; }
+.audio-wave{ flex:1; display:flex; align-items:center; gap:3px; height:28px; }
+.audio-wave i{ flex:1; background:var(--primary-soft); border-radius:3px; height:35%; }
+.audio-card.playing .audio-wave i{ background:var(--primary); animation:wave .9s ease-in-out infinite; }
+.audio-dur{ font-size:13px; color:var(--ink2); font-variant-numeric:tabular-nums; flex-shrink:0; }
+@keyframes wave{ 0%,100%{ height:22%; } 50%{ height:95%; } }
+
+.rec-bar{ display:flex; align-items:center; gap:12px; background:var(--card);
+  border-radius:16px; padding:12px 15px; box-shadow:var(--shadow); }
+.rec-bar .rec-dot{ width:10px; height:10px; border-radius:50%; background:var(--red); animation:pulse 1s infinite; }
+.rec-wave{ flex:1; display:flex; align-items:center; gap:3px; height:26px; }
+.rec-wave i{ flex:1; background:var(--primary); border-radius:3px; animation:wave .9s ease-in-out infinite; }
+.rec-bar .timer{ font-variant-numeric:tabular-nums; font-size:14px; color:var(--ink2); }
+.stop-btn{ width:36px; height:36px; border-radius:50%; background:var(--red); color:#fff;
+  display:flex; align-items:center; justify-content:center; }
+
+.photo-strip{ display:flex; gap:9px; flex-wrap:wrap; }
+.photo-item{ position:relative; width:72px; height:72px; border-radius:14px; overflow:hidden; }
+.photo-item img{ width:100%; height:100%; object-fit:cover; }
+.photo-item .del{ position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%;
+  background:rgba(0,0,0,.55); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; }
+.photo-grid{ display:flex; gap:9px; flex-wrap:wrap; }
+/* 照片 wrapper：承载 LIVE 角标（img 无法用伪元素） */
+.pg-w{ position:relative; width:calc((100% - 18px)/3); aspect-ratio:1; border-radius:14px; overflow:hidden; cursor:zoom-in; }
+.photo-grid .pg-w .pg{ width:100%; height:100%; aspect-ratio:auto; border-radius:0; }
+.pg-w.live::after{ content:'LIVE'; position:absolute; left:6px; top:6px; z-index:2;
+  font-size:9px; font-weight:700; letter-spacing:.8px; color:#fff;
+  background:rgba(0,0,0,.45); padding:2.5px 6px; border-radius:6px; backdrop-filter:blur(4px); }
+.photo-grid .pg{ width:calc((100% - 18px)/3); aspect-ratio:1; border-radius:14px; object-fit:cover;
+  display:flex; align-items:center; justify-content:center; font-size:30px; }
+
+.video-box{ position:relative; width:100%; aspect-ratio:16/10; border-radius:16px; overflow:hidden; cursor:pointer; }
+.video-box video{ width:100%; height:100%; object-fit:cover; }
+.video-box .v-cover{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:40px; }
+.video-box .v-dur{ position:absolute; bottom:8px; right:10px; font-size:11px; color:#fff;
+  background:rgba(0,0,0,.55); padding:2px 8px; border-radius:8px; }
+
+/* ============ 转写卡 ============ */
+.trans-card{ background:var(--card); border-radius:var(--radius); padding:14px 16px; box-shadow:var(--shadow); }
+.trans-card + .trans-card, .audio-card + .trans-card, .video-box + .trans-card{ margin-top:10px; }
+.t-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; }
+.t-title{ font-size:12.5px; font-weight:600; color:var(--ink2); display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.t-title .tag{ font-size:11px; color:var(--primary-deep); background:var(--primary-soft); padding:2px 8px; border-radius:99px; font-weight:500; }
+.mini-btn{ font-size:12px; font-weight:600; color:var(--primary-deep); background:var(--primary-soft);
+  padding:6px 12px; border-radius:99px; flex-shrink:0; }
+.t-body{ font-size:15px; line-height:1.85; color:var(--ink); outline:none; border-radius:8px; }
+.t-body[contenteditable]{ box-shadow:0 1px 0 var(--line); }
+.t-body.editing-shadow:focus{ box-shadow:0 2px 0 var(--primary); }
+.t-hint{ margin-top:10px; font-size:12px; color:var(--red); display:flex; align-items:center; gap:5px; }
+.t-hint.ok{ color:var(--green); }
+.t-hint .edit-tip{ color:var(--ink3); }
+.spinner{ width:15px; height:15px; border-radius:50%; border:2px solid var(--line);
+  border-top-color:var(--primary); animation:spin .8s linear infinite; flex-shrink:0; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.trans-loading{ display:flex; align-items:center; gap:9px; font-size:13.5px; color:var(--ink2); padding:8px 2px; }
+
+.typo{ text-decoration:underline wavy var(--red); text-decoration-thickness:1.5px;
+  text-underline-offset:4px; cursor:pointer; color:var(--red); }
+
+/* ============ 新建底部工具栏 ============ */
+.compose-tools{ flex-shrink:0; display:flex; align-items:center; justify-content:space-around;
+  padding:12px 6px 30px; background:var(--glass); backdrop-filter:blur(14px); border-top:1px solid var(--line); }
+.tool-btn{ display:flex; flex-direction:column; align-items:center; gap:5px; font-size:11px; color:var(--ink2); width:58px; }
+.tool-btn svg{ width:25px; height:25px; color:var(--ink); }
+.tool-btn:active svg{ transform:scale(.9); color:var(--primary); }
+.tool-btn.rec-on{ color:var(--red); }
+.tool-btn.rec-on svg{ color:var(--red); }
+
+/* ============ 详情页 ============ */
+.detail-date{ padding:2px 4px 4px; }
+.detail-date .big{ font-size:21px; font-weight:700; }
+.detail-date .sub{ font-size:12.5px; color:var(--ink2); margin-top:3px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.detail-tags{ display:flex; gap:6px; }
+.d-block{ background:var(--card); border-radius:var(--radius); padding:16px 18px; margin:12px 0; box-shadow:var(--shadow); }
+.d-block .b-title{ font-size:13px; font-weight:600; color:var(--ink2); margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+.fix-all-btn{ margin-top:12px; width:100%; padding:11px; border-radius:14px; font-size:13.5px; font-weight:600;
+  color:var(--primary-deep); background:var(--primary-soft); }
+.sync-foot{ text-align:center; font-size:12px; color:var(--ink3); margin-top:16px; display:flex; align-items:center; justify-content:center; gap:5px; }
+
+/* 今日总结卡 */
+.summary-card{ background:linear-gradient(150deg, var(--primary-soft), var(--card) 70%); }
+.s-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:9px; }
+.s-title{ font-size:13px; font-weight:700; color:var(--primary-deep); display:flex; align-items:center; gap:7px; }
+.ai-tag{ font-size:10.5px; background:var(--primary); color:#fff; padding:2px 7px; border-radius:6px; letter-spacing:.5px; }
+.s-chat-btn{ display:flex; align-items:center; gap:5px; font-size:12.5px; font-weight:600;
+  color:#fff; background:var(--primary); padding:7px 13px; border-radius:99px; }
+.s-one{ font-size:15px; line-height:1.8; color:var(--ink); }
+.s-bullets{ margin-top:10px; list-style:none; }
+.s-bullets li{ font-size:13px; color:var(--ink2); line-height:1.9; padding-left:14px; position:relative; }
+.s-bullets li::before{ content:'·'; position:absolute; left:2px; color:var(--primary); font-weight:700; }
+
+/* 地点汇总 */
+.loc-list{ display:flex; flex-direction:column; }
+.loc-item{ display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--line); }
+.loc-item:last-child{ border-bottom:none; }
+.loc-item .l-time{ font-size:11.5px; color:var(--ink2); width:40px; flex-shrink:0; font-variant-numeric:tabular-nums; }
+.loc-item .l-dot{ width:8px; height:8px; border-radius:50%; background:var(--primary); flex-shrink:0; }
+.loc-item .l-name{ font-size:14px; font-weight:600; }
+.loc-item .l-addr{ font-size:11.5px; color:var(--ink2); margin-top:2px; }
+
+/* ============ AI 对话梳理 ============ */
+.agent-body{ flex:1; overflow-y:auto; overscroll-behavior:contain; padding:14px 16px 6px; }
+.msg{ display:flex; margin-bottom:13px; }
+.msg.me{ justify-content:flex-end; }
+.bubble{ max-width:80%; padding:10px 14px; border-radius:18px; font-size:14px; line-height:1.75; }
+.msg.ai .bubble{ background:var(--card); box-shadow:var(--shadow); border-top-left-radius:5px; }
+.msg.me .bubble{ background:var(--primary); color:#fff; border-top-right-radius:5px; }
+.msg-quote{ background:var(--bg); border-left:3px solid var(--primary); padding:8px 12px; border-radius:10px;
+  margin:8px 0; font-size:13px; color:var(--ink2); line-height:1.7; }
+.typing{ display:flex; gap:5px; padding:4px 2px; }
+.typing i{ width:7px; height:7px; border-radius:50%; background:var(--ink3); animation:tp 1s infinite; }
+.typing i:nth-child(2){ animation-delay:.15s; } .typing i:nth-child(3){ animation-delay:.3s; }
+@keyframes tp{ 40%{ transform:translateY(-5px); opacity:.4; } }
+.quick-row{ display:flex; gap:8px; overflow-x:auto; padding:8px 14px; flex-shrink:0; }
+.q-chip{ flex-shrink:0; font-size:12.5px; color:var(--primary-deep); background:var(--primary-soft);
+  padding:7px 13px; border-radius:99px; }
+.agent-input{ display:flex; gap:9px; padding:10px 14px 26px; background:var(--glass);
+  border-top:1px solid var(--line); flex-shrink:0; }
+.agent-input input{ flex:1; background:var(--card); border:none; outline:none; border-radius:99px;
+  padding:11px 17px; font-size:14px; color:var(--ink); font-family:inherit; }
+.agent-input input::placeholder{ color:var(--ink3); }
+.send-btn{ width:42px; height:42px; border-radius:50%; background:var(--primary); color:#fff; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; }
+
+/* ============ 我的页 ============ */
+.me-head{ display:flex; flex-direction:column; align-items:center; padding:24px 0 8px; }
+.avatar{ width:74px; height:74px; border-radius:50%; background:linear-gradient(140deg,#E8B48A,#C4703F);
+  display:flex; align-items:center; justify-content:center; font-size:32px; color:#fff; }
+.me-head .nm{ font-size:18px; font-weight:700; margin-top:12px; }
+.me-head .st{ font-size:12.5px; color:var(--ink2); margin-top:3px; }
+.me-edit-tip{ font-size:11px; color:var(--ink3); margin-top:8px; padding:5px 12px;
+  border:1px dashed var(--line); border-radius:99px; }
+
+/* ============ 编辑资料 ============ */
+.prof-preview{ display:flex; align-items:center; gap:12px; padding:14px 4px 4px; }
+.prof-preview .avatar{ width:52px; height:52px; font-size:24px; }
+.pv-name{ font-size:16px; font-weight:700; }
+.prof-label{ font-size:12.5px; font-weight:600; color:var(--ink2); margin:12px 2px 7px; }
+#nameInput{ width:100%; font-size:14.5px; padding:11px 13px; border-radius:12px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink); outline:none; }
+#nameInput:focus{ border-color:var(--primary); }
+.emoji-grid{ display:grid; grid-template-columns:repeat(6,1fr); gap:8px; }
+.emoji-grid button{ font-size:22px; padding:9px 0; border-radius:12px; background:var(--card); box-shadow:var(--shadow); }
+.emoji-grid button.sel{ background:var(--primary-soft); box-shadow:0 0 0 2px var(--primary); }
+/* 照片头像：背景图铺满圆形，隐藏 emoji 文字 */
+.avatar.has-photo{ background-size:cover; background-position:center; font-size:0; }
+.upload-row{ margin-top:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.upload-tip{ font-size:11px; color:var(--ink3); }
+.prof-save{ width:100%; margin-top:16px; font-size:14.5px; font-weight:700; color:#fff;
+  background:var(--primary); padding:13px 0; border-radius:14px; }
+.me-card{ background:var(--card); border-radius:var(--radius); padding:6px 18px; box-shadow:var(--shadow); margin-top:14px; }
+.me-item{ display:flex; align-items:center; gap:12px; padding:15px 0; border-bottom:1px solid var(--line); }
+.me-item:last-child{ border-bottom:none; }
+.me-item.column{ flex-direction:column; align-items:stretch; gap:10px; border-bottom:1px solid var(--line); }
+.me-item.column:last-child{ border-bottom:none; }
+.me-item .m-ic{ width:34px; height:34px; border-radius:11px; background:var(--primary-soft);
+  color:var(--primary-deep); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.me-item .m-tt{ flex:1; }
+.me-item .m-nm{ font-size:14.5px; }
+.me-item .m-ds{ font-size:11.5px; color:var(--ink2); margin-top:3px; }
+.switch{ width:46px; height:27px; border-radius:99px; background:var(--green); position:relative; transition:background .2s; flex-shrink:0; }
+.switch.off{ background:#DDD6CB; }
+.screen.dark .switch.off{ background:#3A342B; }
+.switch::after{ content:''; position:absolute; top:3px; left:24px; width:21px; height:21px; border-radius:50%;
+  background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.2); transition:left .2s; }
+.switch.off::after{ left:3px; }
+.radio-g{ display:flex; background:var(--bg); border-radius:11px; padding:3px; gap:2px; }
+.radio-g .rg{ font-size:12px; padding:6px 10px; border-radius:9px; color:var(--ink2); white-space:nowrap; }
+.radio-g .rg.sel{ background:var(--card); color:var(--primary-deep); font-weight:600; box-shadow:var(--shadow); }
+.me-stat{ display:flex; padding:16px 0; }
+.me-stat .st-c{ flex:1; text-align:center; }
+.me-stat .st-n{ font-size:21px; font-weight:700; color:var(--primary-deep); }
+.me-stat .st-l{ font-size:11.5px; color:var(--ink2); margin-top:3px; }
+.theme-dots{ display:flex; gap:12px; padding:4px 0 2px; }
+.th-dot{ width:30px; height:30px; border-radius:50%; position:relative; transition:transform .15s; }
+.th-dot.sel{ transform:scale(1.15); }
+.th-dot.sel::after{ content:''; position:absolute; inset:-5px; border-radius:50%; border:2px solid var(--ink); }
+
+/* ============ 弹层 ============ */
+.mask{ position:absolute; inset:0; background:rgba(30,25,20,.4); z-index:40;
+  opacity:0; pointer-events:none; transition:opacity .3s; }
+.mask.show{ opacity:1; pointer-events:auto; }
+
+/* ============ 图片查看器 ============ */
+.viewer{ position:absolute; inset:0; z-index:90; background:rgba(12,10,8,.97);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity .22s; }
+.viewer.show{ opacity:1; pointer-events:auto; }
+.v-bar{ position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between;
+  align-items:center; padding:12px 16px; color:#fff; }
+#vCount{ font-size:13px; opacity:.85; letter-spacing:1.5px; }
+.v-close{ color:#fff; font-size:16px; width:34px; height:34px; border-radius:50%;
+  background:rgba(255,255,255,.14); }
+.v-stage{ position:relative; width:100%; display:flex; justify-content:center; align-items:center; padding:0 52px; }
+#vImg{ max-width:100%; max-height:76%; border-radius:8px; object-fit:contain; transition:transform .2s; }
+#vImg.playing{ animation:liveplay 2.6s ease; }
+@keyframes liveplay{ 0%{transform:scale(1)} 25%{transform:scale(1.05)} 80%{transform:scale(1.05)} 100%{transform:scale(1)} }
+.v-nav{ position:absolute; top:50%; transform:translateY(-50%); width:38px; height:38px; border-radius:50%;
+  background:rgba(255,255,255,.14); color:#fff; font-size:22px; line-height:1; }
+.v-nav.prev{ left:12px; } .v-nav.next{ right:12px; }
+.v-live{ position:absolute; bottom:28px; left:50%; transform:translateX(-50%); color:#fff; font-size:12px;
+  background:rgba(255,255,255,.16); padding:7px 15px; border-radius:99px; display:none; }
+.v-live.show{ display:block; }
+.v-time{ position:absolute; top:54px; left:50%; transform:translateX(-50%); color:#fff; font-size:12px;
+  background:rgba(255,255,255,.16); padding:6px 14px; border-radius:99px; display:none; }
+.v-time.show{ display:block; }
+.v-type{ position:absolute; top:54px; right:14px; color:#fff; font-size:11px; font-weight:600;
+  background:rgba(255,255,255,.16); padding:5px 10px; border-radius:99px; display:none; }
+.v-type.show{ display:block; }
+#vVideo{ max-width:100%; max-height:76%; border-radius:8px; background:#000; display:none; }
+#vVideo.show{ display:block; }
+.v-demo-play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:58px; height:58px;
+  border-radius:50%; background:rgba(255,255,255,.18); color:#fff; font-size:22px;
+  display:none; align-items:center; justify-content:center; backdrop-filter:blur(6px); }
+.v-demo-play.show{ display:flex; }
+
+/* 片段内视频封面 + 播放按钮 */
+.video-box .v-poster{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.video-box .v-play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:46px; height:46px;
+  border-radius:50%; background:rgba(0,0,0,.45); color:#fff; font-size:17px;
+  display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px);
+  box-shadow:0 0 0 5px rgba(255,255,255,.25); }
+
+/* ============ 堆叠相纸（单片段 ≥5 张） ============ */
+.stack-row{ display:flex; overflow-x:auto; padding:8px 2px 4px;
+  scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; }
+.stack-row::-webkit-scrollbar{ display:none; }
+.st-card{ position:relative; flex:0 0 122px; width:122px; padding:5px 5px 17px; background:#fff;
+  border-radius:9px; box-shadow:0 4px 12px rgba(0,0,0,.16); margin-left:-76px;
+  scroll-snap-align:center; transform:rotate(-2.2deg); cursor:zoom-in; }
+.stack-row .st-card:first-child{ margin-left:0; }
+.stack-row .st-card:nth-child(even){ transform:rotate(1.8deg); }
+.stack-row .st-card:nth-child(3n){ transform:rotate(-1.2deg) translateY(3px); }
+.st-card img{ width:100%; aspect-ratio:1; object-fit:cover; border-radius:5px; display:block; }
+.st-card.live::after{ content:'LIVE'; position:absolute; left:11px; top:11px; z-index:2;
+  font-size:9px; font-weight:700; letter-spacing:.8px; color:#fff;
+  background:rgba(0,0,0,.45); padding:2.5px 6px; border-radius:6px; backdrop-filter:blur(4px); }
+.st-hint{ font-size:11.5px; color:var(--ink3); text-align:center; padding:3px 0 4px; }
+
+/* ============ 新建空状态引导 ============ */
+.empty-hint{ text-align:center; padding:64px 24px 24px; }
+.empty-hint .eh-ic{ font-size:34px; margin-bottom:12px; }
+.empty-hint .eh-t{ font-size:15px; font-weight:600; color:var(--ink); margin-bottom:8px; }
+.empty-hint .eh-s{ font-size:12.5px; color:var(--ink3); line-height:1.8; }
+
+/* ============ 背景色选择 ============ */
+.bg-sw-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:4px; }
+.bg-sw{ width:46px; height:33px; border-radius:10px; border:1px solid var(--line); position:relative;
+  transition:transform .15s; }
+.bg-sw:active{ transform:scale(.92); }
+.bg-sw.sel{ box-shadow:0 0 0 2px var(--bg), 0 0 0 4px var(--primary); }
+
+/* ============ PWA 独立运行（添加到主屏幕后全屏 App 模式） ============ */
+body.pwa{ padding:0; gap:0; }
+body.pwa aside.side-note{ display:none; }
+body.pwa .phone{ width:100vw; max-width:520px; height:100vh; height:100dvh; border-radius:0; box-shadow:none; padding:0; zoom:1 !important; }
+body.pwa .statusbar{ display:none; }
+body.pwa .screen{ border-radius:0; height:100dvh; }
+
+/* ============ 安装引导条 ============ */
+.install-tip{ position:fixed; left:50%; bottom:18px; transform:translateX(-50%) translateY(140%);
+  z-index:200; display:flex; align-items:center; gap:10px; padding:11px 16px;
+  background:#2C2925; color:#fff; border-radius:14px; box-shadow:0 8px 28px rgba(0,0,0,.35);
+  font-size:13px; max-width:92vw; transition:transform .35s cubic-bezier(.2,.9,.3,1.2); }
+.install-tip.show{ transform:translateX(-50%) translateY(0); }
+.install-tip .it-icon{ font-size:22px; }
+.install-tip .it-x{ color:rgba(255,255,255,.55); font-size:15px; padding:4px 2px; }
+.sheet{ position:absolute; left:0; right:0; bottom:0; background:var(--bg);
+  border-radius:28px 28px 0 0; padding:12px 18px 34px;
+  transform:translateY(100%); transition:transform .35s cubic-bezier(.32,.72,.25,1);
+  max-height:86%; display:flex; flex-direction:column; }
+.mask.show .sheet{ transform:translateY(0); }
+.sheet .grab{ width:40px; height:4px; border-radius:99px; background:var(--line); margin:0 auto 12px; }
+.sheet-ttl{ font-size:15px; font-weight:700; margin-bottom:2px; }
+.sheet-sub{ font-size:12px; color:var(--ink2); margin-bottom:12px; }
+
+.map-canvas{ position:relative; width:100%; height:220px; border-radius:20px; overflow:hidden; background:#EAE6DC; flex-shrink:0; }
+.map-canvas .road-h{ position:absolute; left:0; right:0; height:14px; background:#fff; }
+.map-canvas .road-v{ position:absolute; top:0; bottom:0; width:14px; background:#fff; }
+.map-canvas .park{ position:absolute; background:#C9DCC2; border-radius:14px; }
+.map-canvas .water{ position:absolute; background:#AFD0E6; border-radius:50%; }
+.map-canvas .blk{ position:absolute; background:#E0DACB; border-radius:8px; }
+.screen.dark .map-canvas{ background:#2E2A22; }
+.screen.dark .map-canvas .blk{ background:#3C372C; }
+.screen.dark .map-canvas .park{ background:#33452F; }
+.screen.dark .map-canvas .water{ background:#2C3D4A; }
+.screen.dark .map-canvas .road-h, .screen.dark .map-canvas .road-v{ background:#4A4437; }
+.map-canvas .me-pin{ position:absolute; width:18px; height:18px; border-radius:50%; background:var(--primary);
+  border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.3); z-index:3; }
+.poi-list{ flex:1; overflow-y:auto; overscroll-behavior:contain; margin-top:12px; }
+.poi{ display:flex; align-items:center; gap:12px; padding:13px 6px; border-bottom:1px solid var(--line); cursor:pointer; }
+.poi .p-ic{ width:36px; height:36px; border-radius:12px; background:var(--card); display:flex;
+  align-items:center; justify-content:center; font-size:17px; box-shadow:var(--shadow); flex-shrink:0; }
+.poi .p-name{ font-size:14.5px; }
+.poi .p-addr{ font-size:12px; color:var(--ink2); margin-top:2px; }
+.poi .p-dist{ margin-left:auto; font-size:12px; color:var(--ink3); flex-shrink:0; }
+
+/* 标签选择器 */
+.tag-grid{ display:flex; flex-wrap:wrap; gap:10px; padding:4px 0 12px; }
+.t-chip{ display:inline-flex; align-items:center; gap:6px; font-size:13.5px; padding:9px 15px;
+  border-radius:99px; background:var(--card); box-shadow:var(--shadow); color:var(--ink); }
+.t-chip .dot{ width:9px; height:9px; border-radius:50%; }
+.t-chip.sel{ box-shadow:0 0 0 2px var(--primary); font-weight:600; }
+.t-chip.dis{ opacity:.4; }
+.new-tag-row{ display:flex; gap:9px; padding-top:10px; border-top:1px solid var(--line); }
+.new-tag-row input{ flex:1; background:var(--card); border:none; outline:none; border-radius:12px;
+  padding:11px 15px; font-size:14px; color:var(--ink); font-family:inherit; }
+.new-tag-row input::placeholder{ color:var(--ink3); }
+.new-tag-row button{ font-size:13.5px; font-weight:600; color:var(--primary-deep);
+  background:var(--primary-soft); padding:0 18px; border-radius:12px; }
+
+/* ============ 日记操作菜单 ============ */
+.more-list{ display:flex; flex-direction:column; gap:10px; padding-bottom:8px; }
+.more-btn{ width:100%; font-size:14.5px; font-weight:600; padding:13px 0; border-radius:14px;
+  background:var(--card); color:var(--ink); box-shadow:var(--shadow); }
+.more-btn.danger{ color:#E36A6E; }
+
+/* ============ 错别字气泡 & Toast ============ */
+.typo-pop{ position:absolute; z-index:60; background:#33291F; color:#fff; border-radius:14px;
+  padding:11px 13px; box-shadow:0 10px 30px rgba(0,0,0,.3);
+  opacity:0; pointer-events:none; transform:translateY(6px) scale(.95); transition:all .18s;
+  width:max-content; max-width:250px; }
+.typo-pop.show{ opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+.typo-pop .tp-row{ display:flex; align-items:center; gap:8px; font-size:13.5px; }
+.typo-pop .tp-wrong{ color:#F5A3A6; text-decoration:line-through; }
+.typo-pop .tp-right{ color:#8FD9B4; font-weight:600; }
+.typo-pop .tp-acts{ display:flex; gap:8px; margin-top:9px; }
+.typo-pop .tp-btn{ font-size:12px; padding:6px 12px; border-radius:9px; background:rgba(255,255,255,.12); color:#fff; }
+.typo-pop .tp-btn.main{ background:var(--primary); }
+.toast{ position:absolute; top:58px; left:50%; transform:translate(-50%,-16px); z-index:70;
+  background:rgba(40,33,26,.92); color:#fff; font-size:13.5px; padding:10px 18px;
+  border-radius:99px; opacity:0; pointer-events:none; transition:all .3s;
+  display:flex; align-items:center; gap:7px; max-width:82%; text-align:center; }
+.toast.show{ opacity:1; transform:translate(-50%,0); }
+.toast svg{ width:15px; height:15px; color:#8FD9B4; flex-shrink:0; }
+</style>
+</head>
+<body>
+
+<!-- 桌面端说明面板 -->
+<aside class="side-note">
+  <h1>拾光日记</h1>
+  <div class="sub">网页交互原型 · v0.3（视口自适应 + 地点去重）</div>
+  <p class="desc">本版核心改动：日记 = 一天内多个带时间点的片段。v0.3 修复了小窗口下点击错位的问题（手机框随窗口自动缩放）。</p>
+  <ul>
+    <li><b>① 碎片化记录</b>：点 + 号新建，底部可反复插入文字/录音/视频/照片，每个片段记录几点几分</li>
+    <li><b>② 地点内联</b>：光标点在文字里 → 点底部「地点」→ 选地点，插在文字原处；详情页底部有地点汇总</li>
+    <li><b>③ 录音+转写</b>：录音1 → 自动转写1 → 再录音2 → 转写2，各自独立气泡，原录音保留</li>
+    <li><b>④ 转写可编辑</b>：转写文字直接点进去改；红色波浪线点击纠正，或「一键纠错」（新建页也有）</li>
+    <li><b>⑤ 标签</b>：新建页「+ 标签」最多选 3 个；首页顶部按标签筛选</li>
+    <li><b>⑥ 今日总结</b>：详情页顶部 AI 总结卡 → 点「对话梳理」进入 AI 问答</li>
+    <li><b>⑦ 主题/背景/深色</b>：「我的」页可换 5 种主题色 + 9 档背景色（浅色/深色各一组，自由搭配）；深色模式支持跟随系统/浅色/深色/夜间自动</li>
+    <li><b>⑧ 同日合并</b>：今天已有日记时再保存，片段会追加进当天日记</li>
+    <li><b>⑨ 媒体查看</b>：点任意照片/视频全屏查看，左右切换<b>跨片段</b>浏览全天照片和视频（显示拍摄时间点）；真实视频文件在大图中直接播放；带 LIVE 角标的为 Live 图，长按播放动态</li>
+    <li><b>⑩ 堆叠相纸</b>：单片段照片 ≥5 张时自动从平铺变为相纸堆叠（见「昨天」日记），左右滑动翻看</li>
+    <li><b>⑪ 备份迁移</b>：「我的 → 本地数据」可导出/导入 JSON 备份（<b>含视频、照片本体</b>），换手机时同一天的内容自动合并；未来上架 App Store 的原生 App 才能实现 iCloud 全自动同步</li>
+  </ul>
+  <div class="note">v1.0 可安装版：数据本地持久化（断网不丢），手机 Safari「分享 → 添加到主屏幕」即可全屏离线使用。转写为演示文案（真实语音识别需原生开发）。照片/视频按钮可选本机真实文件。</div>
+</aside>
+
+<!-- 手机 -->
+<div class="phone">
+  <div class="screen" id="screen">
+
+    <div class="statusbar">
+      <span id="sbTime">9:41</span>
+      <span class="right">●●●●&nbsp;📶&nbsp;🔋</span>
+    </div>
+
+    <!-- ============ 首页 ============ -->
+    <section class="view active" id="view-home">
+      <header class="home-head">
+        <h2>拾光日记</h2>
+        <button class="cloud-btn" id="cloudBtn">
+          <span class="dot" id="cloudDot"></span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 17.7 8.5 4 4 0 0 1 17.5 18z"/></svg>
+          已存本机
+        </button>
+      </header>
+      <div class="app-body">
+        <div class="searchbar" id="searchBar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          搜索日记、地点、关键词…
+        </div>
+        <div class="filter-row" id="filterRow"></div>
+        <div id="timeline"></div>
+      </div>
+    </section>
+
+    <!-- ============ 我的 ============ -->
+    <section class="view" id="view-me">
+      <div class="app-body">
+        <div class="me-head" id="meHead">
+          <div class="avatar" id="meAvatar">柚</div>
+          <div class="nm" id="meName">柚子</div>
+          <div class="st" id="meStreak">已连续记录 0 天 🔥</div>
+          <div class="me-edit-tip">点击修改昵称和头像</div>
+        </div>
+
+        <div class="me-card">
+          <div class="me-stat">
+            <div class="st-c"><div class="st-n" id="statDiary">0</div><div class="st-l">日记</div></div>
+            <div class="st-c"><div class="st-n" id="statEntry">0</div><div class="st-l">片段</div></div>
+            <div class="st-c"><div class="st-n" id="statPhoto">0</div><div class="st-l">照片</div></div>
+            <div class="st-c"><div class="st-n" id="statTag">0</div><div class="st-l">标签</div></div>
+          </div>
+        </div>
+
+        <div class="me-card">
+          <div class="me-item column">
+            <div class="m-nm" style="font-size:14.5px">主题色</div>
+            <div class="theme-dots" id="themeDots"></div>
+          </div>
+          <div class="me-item column">
+            <div class="m-nm" style="font-size:14.5px">背景色 <span style="font-size:11.5px;color:var(--ink3);font-weight:400" id="bgModeTip">浅色模式色板</span></div>
+            <div class="bg-sw-row" id="bgSwRow"></div>
+            <div class="m-ds">与主题色自由搭配 · 浅色/深色分别记忆</div>
+          </div>
+          <div class="me-item column">
+            <div class="m-nm" style="font-size:14.5px">深色模式</div>
+            <div class="radio-g" id="darkModeG">
+              <button class="rg" data-dm="system">跟随系统</button>
+              <button class="rg" data-dm="light">浅色</button>
+              <button class="rg" data-dm="dark">深色</button>
+            </div>
+            <div class="m-ds">选「深色」可立即预览效果</div>
+          </div>
+          <div class="me-item">
+            <div class="m-tt"><div class="m-nm">夜间自动深色</div><div class="m-ds">22:00 – 次日 7:00 自动切换深色</div></div>
+            <div class="switch" id="nightSwitch"></div>
+          </div>
+        </div>
+
+        <div class="me-card">
+          <div class="me-item">
+            <div class="m-ic">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 17.7 8.5 4 4 0 0 1 17.5 18z"/></svg>
+            </div>
+            <div class="m-tt"><div class="m-nm">自动保存到本机</div><div class="m-ds" id="lastSync">上次保存：刚刚 · 换手机前请先「导出备份」</div></div>
+            <div class="switch" id="icloudSwitch"></div>
+          </div>
+          <div class="me-item">
+            <div class="m-ic">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg>
+            </div>
+            <div class="m-tt">
+              <div class="m-nm">语音转文字引擎</div>
+              <div class="m-ds">原型演示：转写为内置示例文案 · 未接真实引擎 · 不产生任何费用</div>
+              <div class="radio-g" style="margin-top:8px">
+                <button class="rg" data-eng="device">设备端（免费）</button>
+                <button class="rg sel" data-eng="cloud">云端 AI 纠错</button>
+              </div>
+            </div>
+          </div>
+          <div class="me-item">
+            <div class="m-ic">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2.5"/></svg>
+            </div>
+            <div class="m-tt"><div class="m-nm">自动转写</div><div class="m-ds">保存录音/视频后自动转成文字</div></div>
+            <div class="switch" id="autoTransSwitch"></div>
+          </div>
+        </div>
+
+        <div class="me-card">
+          <div class="me-item">
+            <div class="m-tt"><div class="m-nm">本地数据</div><div class="m-ds" id="dataInfo">数据保存在本机 · 断网/重启不丢失</div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="mini-btn" id="exportData">导出备份</button>
+              <button class="mini-btn" id="importData">导入备份</button>
+              <button class="mini-btn" id="loadDemo">载入示例</button>
+              <button class="mini-btn" id="clearData">清空数据</button>
+            </div>
+          </div>
+          <div class="me-item">
+            <div class="m-tt"><div class="m-nm">换手机迁移</div><div class="m-ds">旧手机「导出备份」→ 文件存 iCloud Drive / 微信传输 → 新手机「导入备份」，同一天的内容自动合并</div></div>
+          </div>
+          <div class="me-item">
+            <div class="m-tt"><div class="m-nm">安装到主屏幕</div><div class="m-ds">Safari 分享 → 添加到主屏幕 · 全屏运行离线可用</div></div>
+          </div>
+          <div class="me-item column">
+            <div class="m-tt"><div class="m-nm">分享给朋友</div><div class="m-ds" id="shareHint">朋友打开链接即可使用，按引导添加到主屏幕就变成 App</div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="mini-btn" id="btnShareApp">分享</button>
+              <button class="mini-btn" id="btnCopyLink">复制链接</button>
+              <button class="mini-btn" id="btnShareGuide">安装指引</button>
+            </div>
+          </div>
+          <div class="me-item">
+            <div class="m-tt"><div class="m-nm">版本 <span id="appVersion"></span></div><div class="m-ds" id="updInfo">更新有滞后时点下方按钮检查</div></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="mini-btn" id="checkUpdate">检查更新</button>
+            </div>
+          </div>
+          <div class="me-item">
+            <div class="m-tt"><div class="m-nm">关于拾光日记</div><div class="m-ds" id="aboutVer">· 可安装离线版 · 数据本地优先</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 新建日记 ============ -->
+    <section class="sheet-view" id="view-compose">
+      <div class="sheet-head">
+        <button class="btn-ghost" id="btnCancel">取消</button>
+        <div class="ttl" id="composeDate">今天</div>
+        <button class="btn-save" id="btnSave">保存</button>
+      </div>
+      <div class="attr-rows">
+        <div class="compose-date" id="composeSub"></div>
+        <div class="mood-row" id="moodRow" style="margin-top:8px">
+          <button class="pill" data-w="☀️">☀️</button>
+          <button class="pill" data-w="⛅️">⛅️</button>
+          <button class="pill" data-w="🌧️">🌧️</button>
+          <button class="pill" data-w="❄️">❄️</button>
+          <button class="pill" data-w="🌙">🌙</button>
+          <span class="sep"></span>
+          <button class="pill" data-m="😊">😊</button>
+          <button class="pill" data-m="😌">😌</button>
+          <button class="pill" data-m="😐">😐</button>
+          <button class="pill" data-m="🥳">🥳</button>
+          <button class="pill" data-m="😢">😢</button>
+        </div>
+        <div class="tag-row" id="composeTagRow"></div>
+      </div>
+      <div class="entry-flow" id="entryFlow"></div>
+      <div class="compose-tools">
+        <button class="tool-btn" id="toolText">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 16.5 15.8 6.7a2.1 2.1 0 0 1 3 3L9 19.5l-4 1z"/></svg>
+          文字
+        </button>
+        <button class="tool-btn" id="toolPhoto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+          照片
+        </button>
+        <button class="tool-btn" id="toolVideo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3"/></svg>
+          视频
+        </button>
+        <button class="tool-btn" id="toolMic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2.5" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3.5"/></svg>
+          <span id="micLabel">录音</span>
+        </button>
+        <button class="tool-btn" id="toolPin">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+          地点
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ 日记详情 ============ -->
+    <section class="sheet-view" id="view-detail">
+      <div class="sheet-head">
+        <button class="btn-ghost" id="btnBack">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 5.5-7 6.5 7 6.5"/></svg>
+        </button>
+        <div class="ttl">日记详情</div>
+        <button class="btn-ghost" id="btnDetailMore">···</button>
+      </div>
+      <div class="app-body" id="detailBody"></div>
+    </section>
+
+    <!-- ============ AI 对话梳理 ============ -->
+    <section class="sheet-view" id="view-agent">
+      <div class="sheet-head">
+        <button class="btn-ghost" id="btnAgentBack">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 5.5-7 6.5 7 6.5"/></svg>
+        </button>
+        <div class="ttl">AI 梳理助手</div>
+        <button class="btn-ghost" style="width:38px"></button>
+      </div>
+      <div class="agent-body" id="agentBody"></div>
+      <div class="quick-row" id="quickRow">
+        <button class="q-chip" data-q="今天都做了什么">今天都做了什么</button>
+        <button class="q-chip" data-q="情绪怎么样">情绪怎么样</button>
+        <button class="q-chip" data-q="去了哪些地方">去了哪些地方</button>
+        <button class="q-chip" data-q="一句话总结今天">一句话总结今天</button>
+        <button class="q-chip" data-q="给明天的建议">给明天的建议</button>
+      </div>
+      <div class="agent-input">
+        <input id="agentInput" placeholder="问我任何关于这一天的事…">
+        <button class="send-btn" id="agentSend">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5.5 11.5 6.5-6.5 6.5 6.5"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ Tab 栏 ============ -->
+    <nav class="tabbar" id="tabbar">
+      <button class="tab-btn active" data-tab="home">
+        <svg class="t-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13.5"/><path d="M3 19.5h18"/><path d="M9 19.5V13h6v6.5"/></svg>
+        日记
+      </button>
+      <button class="fab" id="fabNew">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button class="tab-btn" data-tab="me">
+        <svg class="t-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.5" r="3.8"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></svg>
+        我的
+      </button>
+    </nav>
+
+    <!-- ============ 图片查看器 ============ -->
+    <div class="viewer" id="viewer">
+      <div class="v-bar">
+        <span id="vCount">1 / 1</span>
+        <button class="v-close" id="vClose">✕</button>
+      </div>
+      <div class="v-time" id="vTime"></div>
+      <div class="v-stage">
+        <img id="vImg" alt="">
+        <video id="vVideo" controls playsinline></video>
+        <div class="v-demo-play" id="vDemoPlay">▶</div>
+      </div>
+      <div class="v-type" id="vType"></div>
+      <button class="v-nav prev" id="vPrev">‹</button>
+      <button class="v-nav next" id="vNext">›</button>
+      <div class="v-live" id="vLive">◉ LIVE · 长按图片播放动态</div>
+    </div>
+
+    <!-- ============ 地图弹层 ============ -->
+    <div class="mask" id="mapMask">
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="sheet-ttl">插入地点</div>
+        <div class="sheet-sub">将插入到当前光标位置（若未聚焦文字，则追加到最后一段文字）</div>
+        <div class="map-canvas">
+          <div class="blk" style="left:8%;top:10%;width:20%;height:22%"></div>
+          <div class="blk" style="left:12%;top:44%;width:16%;height:18%"></div>
+          <div class="blk" style="right:10%;top:14%;width:22%;height:20%"></div>
+          <div class="blk" style="right:14%;top:52%;width:18%;height:16%"></div>
+          <div class="park" style="left:36%;top:14%;width:24%;height:26%"></div>
+          <div class="water" style="left:34%;top:60%;width:30%;height:34%"></div>
+          <div class="road-h" style="top:46%"></div>
+          <div class="road-v" style="left:30%"></div>
+          <div class="road-v" style="right:28%"></div>
+          <div class="road-h" style="top:8%"></div>
+          <div class="me-pin" style="left:48%;top:42%"></div>
+        </div>
+        <div class="poi-list" id="poiList"></div>
+      </div>
+    </div>
+
+    <!-- ============ 标签选择器 ============ -->
+    <div class="mask" id="tagMask">
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="sheet-ttl">选择标签</div>
+        <div class="sheet-sub">一篇日记最多 3 个标签（可在 3 个分组中出现）</div>
+        <div class="tag-grid" id="tagGrid"></div>
+        <div class="new-tag-row">
+          <input id="newTagInput" placeholder="新建标签名称…">
+          <button id="newTagBtn">添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 日记操作菜单 ============ -->
+    <div class="mask" id="moreMask">
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="sheet-ttl">日记操作</div>
+        <div class="sheet-sub">点文字片段可直接修改（时间点不变）；长按片段（电脑右键）单独删除</div>
+        <div class="more-list">
+          <button class="more-btn danger" id="delDiaryBtn">🗑 删除这篇日记</button>
+          <button class="more-btn" id="moreCancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ 编辑资料 ============ -->
+    <div class="mask" id="meMask">
+      <div class="sheet">
+        <div class="grab"></div>
+        <div class="sheet-ttl">编辑资料</div>
+        <div class="sheet-sub">资料只保存在本机（网页版无账号系统，换手机靠备份迁移）</div>
+        <div class="prof-preview"><div class="avatar" id="pvAvatar">柚</div><div class="pv-name" id="pvName">柚子</div></div>
+        <div class="prof-label">昵称</div>
+        <input id="nameInput" maxlength="12" placeholder="给自己起个名字…">
+        <div class="prof-label">头像</div>
+        <div class="emoji-grid" id="emojiGrid"></div>
+        <div class="upload-row">
+          <button class="mini-btn" id="btnUploadAvatar">上传照片做头像</button>
+          <span class="upload-tip">选照片后点保存生效 · 选 emoji 则取消照片</span>
+        </div>
+        <input type="file" id="avatarFile" accept="image/*" hidden>
+        <button class="prof-save" id="saveProfile">保存</button>
+      </div>
+    </div>
+
+    <!-- 错别字气泡 -->
+    <div class="typo-pop" id="typoPop">
+      <div class="tp-row">
+        <span class="tp-wrong" id="tpWrong"></span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        <span class="tp-right" id="tpRight"></span>
+      </div>
+      <div class="tp-acts">
+        <button class="tp-btn main" id="tpFix">替换</button>
+        <button class="tp-btn" id="tpIgnore">忽略</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+</div>
+
+<input type="file" id="filePhoto" accept="image/*" multiple hidden>
+<input type="file" id="fileVideo" accept="video/*" hidden>
+<input type="file" id="fileImport" accept="application/json,.json" hidden>
+
+<!-- 安装到主屏幕引导 -->
+<div class="install-tip" id="installTip">
+  <span class="it-icon">📲</span>
+  <span id="installText">把拾光日记安装到主屏幕：分享 → 添加到主屏幕</span>
+  <button class="it-x" id="installClose">✕</button>
+</div>
+
+<script>
+/* ================= 工具 ================= */
+const $ = id => document.getElementById(id);
+const WEEK = ['周日','周一','周二','周三','周四','周五','周六'];
+const uid = () => 'e' + Math.random().toString(36).slice(2,9);
+function fmtClock(d){ return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+const fmtHM = fmtClock;
+function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+function dayLabel(d){
+  const now = new Date();
+  if(sameDay(d,now)) return '今天'; 
+  const y = new Date(now); y.setDate(y.getDate()-1);
+  if(sameDay(d,y)) return '昨天';
+  return `${d.getMonth()+1}月${d.getDate()}日`;
+}
+function toast(msg, ok){
+  const t = $('toast');
+  t.innerHTML = (ok ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>' : '') + `<span>${msg}</span>`;
+  t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove('show'), 2400);
+}
+function esc(s){ return s.replace(/</g,'&lt;'); }
+
+/* 状态栏时间 */
+(function(){ $('sbTime').textContent = fmtClock(new Date()); })();
+
+/* ================= 主题 ================= */
+const THEMES = {
+  terracotta:{ name:'陶土橙', p:'#C4703F', s:'#F6E7DA', d:'#A85B31', sd:'#3A2C20', dd:'#E09B62' },
+  moss:{       name:'苔藓绿', p:'#4E8D5B', s:'#E3F0E6', d:'#3D7148', sd:'#26322A', dd:'#7BC28A' },
+  indigo:{     name:'黛蓝',   p:'#5B6FBF', s:'#E7EAF6', d:'#48599E', sd:'#272C42', dd:'#8C9BE0' },
+  plum:{       name:'藕紫',   p:'#9B6BB3', s:'#F1E8F5', d:'#7F5495', sd:'#332540', dd:'#C79BDD' },
+  rose:{       name:'樱粉',   p:'#C96A82', s:'#F7E6EB', d:'#A85468', sd:'#3C242C', dd:'#E594AA' },
+};
+const settings = { theme:'terracotta', darkMode:'system', nightAuto:false, bgLight:'cream', bgDark:'charcoal' };
+const APP_VERSION = 'v1.3'; /* 「我的」页展示 · 改动时同步更新 */
+let profile = { name:'柚子', emoji:'柚' }; /* 本机资料（网页版无账号，随备份迁移） */
+const sysDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+/* 背景色板：浅色/深色模式各一组，与主题色自由搭配 */
+const BGS = {
+  light: [
+    {id:'cream',  name:'暖米白', bg:'#F6F3EE', card:'#FFFFFF', line:'#ECE7DF', glass:'rgba(250,248,244,.93)'},
+    {id:'paper',  name:'纸白',   bg:'#FAFAF7', card:'#FFFFFF', line:'#EBEBE5', glass:'rgba(250,250,247,.93)'},
+    {id:'almond', name:'杏仁奶', bg:'#F2EBDF', card:'#FFFDF8', line:'#E5DCCC', glass:'rgba(242,235,223,.93)'},
+    {id:'mist',   name:'雾青',   bg:'#ECF1EF', card:'#FFFFFF', line:'#DCE7E3', glass:'rgba(236,241,239,.93)'},
+    {id:'blush',  name:'浅樱',   bg:'#F8EFF0', card:'#FFFFFF', line:'#EEDFE2', glass:'rgba(248,239,240,.93)'},
+  ],
+  dark: [
+    {id:'charcoal', name:'炭黑',   bg:'#191613', card:'#242019', line:'#332E26', glass:'rgba(24,21,17,.93)'},
+    {id:'cocoa',    name:'深棕',   bg:'#1C1512', card:'#27201B', line:'#382F27', glass:'rgba(26,20,16,.93)'},
+    {id:'slate',    name:'岩蓝灰', bg:'#15181D', card:'#1F242B', line:'#2B323B', glass:'rgba(19,22,27,.93)'},
+    {id:'olive',    name:'橄榄黑', bg:'#161A15', card:'#20261E', line:'#2C332A', glass:'rgba(20,24,19,.93)'},
+  ]
+};
+
+function isDarkNow(){
+  if(settings.nightAuto){
+    const h = new Date().getHours();
+    if(h >= 22 || h < 7) return true;
+  }
+  if(settings.darkMode === 'dark') return true;
+  if(settings.darkMode === 'light') return false;
+  return sysDark.matches;
+}
+function applyTheme(){
+  const t = THEMES[settings.theme];
+  const dark = isDarkNow();
+  const scr = $('screen');
+  scr.classList.toggle('dark', dark);
+  scr.style.setProperty('--primary', t.p);
+  scr.style.setProperty('--primary-soft', dark ? t.sd : t.s);
+  scr.style.setProperty('--primary-deep', dark ? t.dd : t.d);
+  /* 背景色（浅色/深色各自记忆，与主题色独立搭配） */
+  const pal = BGS[dark?'dark':'light'];
+  const bgSet = pal.find(b=>b.id===settings[dark?'bgDark':'bgLight']) || pal[0];
+  scr.style.setProperty('--bg', bgSet.bg);
+  scr.style.setProperty('--card', bgSet.card);
+  scr.style.setProperty('--line', bgSet.line);
+  scr.style.setProperty('--glass', bgSet.glass);
+  if(window.__booted) persist(); /* 设置变化即落盘 */
+}
+sysDark.addEventListener ? sysDark.addEventListener('change', applyTheme)
+  : sysDark.addListener && sysDark.addListener(applyTheme);
+
+function initThemeUI(){
+  const box = $('themeDots'); box.innerHTML='';
+  Object.entries(THEMES).forEach(([k,t])=>{
+    const d = document.createElement('button');
+    d.className = 'th-dot' + (settings.theme===k ? ' sel':'');
+    d.style.background = `linear-gradient(140deg, ${t.dd}, ${t.p})`;
+    d.title = t.name;
+    d.addEventListener('click',()=>{ settings.theme=k; applyTheme(); initThemeUI(); toast(`主题色：${t.name}`); });
+    box.appendChild(d);
+  });
+  $('darkModeG').querySelectorAll('.rg').forEach(r=>{
+    r.classList.toggle('sel', r.dataset.dm===settings.darkMode);
+    r.addEventListener('click',()=>{
+      settings.darkMode = r.dataset.dm; applyTheme(); initThemeUI();
+      toast({system:'深色模式：跟随系统', light:'深色模式：始终浅色', dark:'深色模式：始终深色（预览）'}[settings.darkMode]);
+    });
+  });
+  /* 背景色板：跟随当前浅色/深色模式显示对应组 */
+  const dark = isDarkNow();
+  $('bgModeTip').textContent = dark ? '深色模式色板' : '浅色模式色板';
+  const curBg = settings[dark?'bgDark':'bgLight'];
+  const row = $('bgSwRow'); row.innerHTML='';
+  BGS[dark?'dark':'light'].forEach(b=>{
+    const s = document.createElement('button');
+    s.className = 'bg-sw' + (curBg===b.id ? ' sel':'');
+    s.style.background = `linear-gradient(160deg, ${b.card}, ${b.card}) 8px 9px/26px 9px no-repeat, ${b.bg}`;
+    s.title = b.name;
+    s.addEventListener('click',()=>{
+      settings[dark?'bgDark':'bgLight'] = b.id;
+      applyTheme(); initThemeUI();
+      toast(`背景色：${b.name}`);
+    });
+    row.appendChild(s);
+  });
+  $('nightSwitch').classList.toggle('off', !settings.nightAuto);
+}
+
+/* ================= 数据 ================= */
+const GRADS = [
+  'linear-gradient(135deg,#F6D365,#FDA085)','linear-gradient(135deg,#A8E6CF,#77C9A8)',
+  'linear-gradient(135deg,#89A7E8,#A6C1EE)','linear-gradient(135deg,#F9C6D0,#E8A0B4)',
+  'linear-gradient(135deg,#D5AAE8,#B48CD9)'
+];
+/* 演示用高清照片（真实版由相机拍摄原图） */
+const pic = p => `https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=${encodeURIComponent(p)}&image_size=square`;
+let TAGS = [
+  {id:'life',    name:'生活', emoji:'🌱', color:'#3E9B6F'},
+  {id:'work',    name:'工作', emoji:'💼', color:'#4A7DBF'},
+  {id:'travel',  name:'旅行', emoji:'🧳', color:'#C4703F'},
+  {id:'food',    name:'美食', emoji:'🍜', color:'#D97B4A'},
+  {id:'reading', name:'读书', emoji:'📚', color:'#8A6FBF'},
+  {id:'fitness', name:'健身', emoji:'🏃', color:'#5B8C3E'},
+];
+const tagOf = id => TAGS.find(t=>t.id===id);
+
+function tAt(base, h, m){ const d = new Date(base); d.setHours(h,m,0,0); return d; }
+function dayStart(n){ const d = new Date(); d.setDate(d.getDate()-n); d.setHours(0,0,0,0); return d; }
+function ago(n,h,m){ return tAt(dayStart(n), h, m); }
+
+const typoSpan = (wrong, fix) => `<span class="typo" contenteditable="false" data-fix="${fix}">${wrong}</span>`;
+const locSpan = (name, addr) => `<span class="inline-loc" contenteditable="false" data-name="${name}" data-addr="${addr}">📍 ${name}</span>`;
+
+const DEMO_DIARIES = [ // 示例日记：不再自动塞入，想看效果去「我的 → 载入示例」
+  { // 今天：多片段 + 多录音 + 内联地点
+    date: dayStart(0), weather:'☀️', mood:'😊', tags:['life','food'],
+    entries:[
+      { type:'text', time:tAt(dayStart(0),9,30),
+        html:`早上去了趟${locSpan('鲁迅公园','虹口区四川北路2288号')}，天气特别好，湖边有很多人在拍照，走得很慢。` },
+      { type:'audio', time:tAt(dayStart(0),10,5), audio:{duration:'2:35'}, loc:{name:'鲁迅公园',addr:'虹口区四川北路2288号'},
+        transcriptHtml:`湖边的风很舒服，${typoSpan('天汽','天气')}特别好，很多人在拍照。回来的路上买了${typoSpan('各','个')}冰淇淋，一切都值得。` },
+      { type:'text', time:tAt(dayStart(0),14,32),
+        html:`下午躲在${locSpan('半层书店','虹口区哈尔滨路129号')}看了一下午书，什么也没想，就很好。` },
+      { type:'audio', time:tAt(dayStart(0),15,12), audio:{duration:'1:12'}, loc:{name:'半层书店',addr:'虹口区哈尔滨路129号'},
+        transcriptHtml:`书店二楼很安静，翻了半小时的摄影集。窗外正好能看到${typoSpan('晚虾','晚霞')}，拍了两张照片。` },
+      { type:'photos', time:tAt(dayStart(0),19,40), photos:[
+        {src:pic('Cozy independent bookstore window seat at dusk, open photography book and latte on wooden table, warm lamp light, shot on iPhone, realistic photo')},
+        {src:pic('Brilliant sunset glow seen through a bookstore window, orange pink sky over city rooftops, shot on iPhone, realistic photo')},
+        {src:pic('Close-up of latte art in ceramic cup beside an open book on wooden table, warm cafe light, realistic photo')},
+      ] },
+    ]
+  },
+  { // 昨天：文字+照片+视频转写
+    date: dayStart(1), weather:'⛅️', mood:'😌', tags:['life','reading'],
+    entries:[
+      { type:'text', time:ago(1,15,12),
+        html:`周末的咖啡店，安静的一下午。看了很久的书，什么也没想，就很好。` },
+      { type:'photos', time:ago(1,15,30), photos:[
+        {src:pic('Cappuccino with rosetta latte art in ceramic cup on marble cafe table, top view, soft window light, realistic photo')},
+        {src:pic('Open hardcover book with reading glasses on wooden cafe table, afternoon sunlight, realistic photo')},
+        {src:pic('Slice of basque burnt cheesecake on small ceramic plate with fork, cafe table setting, realistic photo')},
+        {src:pic('Barista pouring milk creating latte art behind wooden cafe counter, warm interior light, realistic photo')},
+        {src:pic('Rain drops on cafe window glass with blurred street bokeh outside, cozy mood, realistic photo')},
+        {src:pic('Steam rising from a fresh cup of filter coffee by a cafe window, morning light, realistic photo'), live:true},
+      ] },
+      { type:'video', time:ago(1,16,20), video:{duration:'0:28', poster:pic('Barista pouring steamed milk into espresso creating rosetta latte art, cafe counter, warm light, realistic video still frame')},
+        transcriptHtml:`拉花还是不太稳，${typoSpan('业','叶')}子总歪。不过奶泡打得不错，下次试试${typoSpan('新形','心形')}。` },
+      { type:'video', time:ago(1,19,40), video:{duration:'0:42', poster:pic('Braised pork belly in clay pot glazed with glossy soy caramel sauce, Chinese home cooking, steam rising, realistic video still frame')}, loc:{name:'家',addr:'徐汇区永嘉路'},
+        transcriptHtml:`今天第一次自己做红烧肉，卖相还行，就是稍微${typoSpan('闲','咸')}了一点。下次糖要少放，${typoSpan('火锅','火候')}很重要，小火慢炖四十分钟。` },
+    ]
+  },
+  { // 前天：纯文字 + 内联地点
+    date: dayStart(2), weather:'🌧️', mood:'😐', tags:['work'],
+    entries:[
+      { type:'text', time:ago(2,22,10),
+        html:`加了一周的班，今天终于休息。冒雨去了趟${locSpan('老弄堂面馆','黄浦区天津路')}，还是熟悉的味道。<br>有些地方就是这样，不用常常去，但只要在，就觉得安心。` },
+    ]
+  },
+  { // 7 天前：旅行
+    date: dayStart(7), weather:'☀️', mood:'🥳', tags:['travel','food'],
+    entries:[
+      { type:'text', time:ago(7,12,20),
+        html:`和朋友去${locSpan('滨江步道','浦东新区民生路渡口')}骑车，江风很大但很开心，晚上吃了很棒的小馆子。` },
+      { type:'photos', time:ago(7,12,50), photos:[
+        {src:pic('Riverside bike path along Huangpu river Shanghai, cyclists riding, sunny day, city skyline across the water, realistic photo')},
+        {src:pic('Golden sunset over riverside promenade, warm orange sky, city silhouette and river reflection, realistic photo')},
+      ] },
+    ]
+  },
+];
+let diaries = []; /* 正式版：首次打开为空，内容只来自你的记录或导入的备份 */
+
+/* 模拟转写文案库（真实版由语音识别引擎生成） */
+const SIMU_TRANSCRIPTS = [
+  `刚录了这段话试试转写。今天有点忙，不过${typoSpan('以经','已经')}到晚上了，${typoSpan('新情','心情')}还挺好，想早点休息。`,
+  `走在路上顺便记两句。刚才那个地方的${typoSpan('风境','风景')}真不错，下次要带${typoSpan('像机','相机')}来拍。`,
+  `今天见了老朋友，聊了很多以前的事，感觉时间过得${typoSpan('珍贵','真快')}。回来路上买了点${typoSpan('水国','水果')}。`,
+];
+const SIMU_VIDEO_TRANSCRIPT = `这段视频记录了今天的心情。画面里风有点大，但一切都好。回来的路上顺便把${typoSpan('录象','录像')}备份了一份，怕丢。`;
+
+/* ================= 派生数据 ================= */
+function typoCountOf(html){ return (String(html).match(/class="typo"/g)||[]).length; }
+function extractLocs(html){
+  const div = document.createElement('div'); div.innerHTML = html;
+  return [...div.querySelectorAll('.inline-loc')].map(s=>({name:s.dataset.name, addr:s.dataset.addr}));
+}
+function textOfHtml(html){
+  const div = document.createElement('div'); div.innerHTML = html;
+  return div.textContent.trim();
+}
+function diaryLocs(d){
+  const out = [];
+  d.entries.forEach(e=>{
+    if(e.type==='text') extractLocs(e.html||'').forEach(l=>out.push({...l, time:e.time}));
+    if(e.loc) out.push({name:e.loc.name, addr:e.loc.addr, time:e.time});
+  });
+  /* 同名地点只保留最早记录的一条（重合地点合并） */
+  const seen = new Set(); return out.filter(l=>{ if(seen.has(l.name)) return false; seen.add(l.name); return true; });
+}
+function firstSnippet(d, n=36){
+  const e = d.entries.find(e=> e.type==='text' && textOfHtml(e.html)) || d.entries.find(e=>e.transcriptHtml);
+  if(!e) return null;
+  const s = textOfHtml(e.type==='text' ? e.html : e.transcriptHtml);
+  return s.length>n ? s.slice(0,n)+'…' : s;
+}
+function moodWord(m){ return ({'😊':'轻快明亮','😌':'平静舒缓','😐':'平稳','🥳':'兴奋高涨','😢':'低落'})[m] || '平稳'; }
+function generateSummary(d){
+  const es = d.entries;
+  const nText = es.filter(e=>e.type==='text').length;
+  const nAudio = es.filter(e=>e.type==='audio').length;
+  const nVideo = es.filter(e=>e.type==='video').length;
+  const nPhoto = es.filter(e=>e.type==='photos').reduce((s,e)=>s+e.photos.length,0);
+  const locs = diaryLocs(d);
+  const topic = firstSnippet(d, 18) || '随记';
+  d.summary = {
+    one: `以「${topic}」为线索的一天，从 ${fmtHM(es[0].time)} 到 ${fmtHM(es[es.length-1].time)} 共记录 ${es.length} 个片段。`,
+    bullets: [
+      `📝 ${nText} 段文字 · 🎙 ${nAudio} 条录音 · 🎬 ${nVideo} 个视频 · 📷 ${nPhoto} 张照片`,
+      locs.length ? `📍 足迹覆盖 ${locs.length} 个地点：${locs.map(l=>l.name).join('、')}` : '📍 今天没有记录地点',
+      `${d.weather||''} ${d.mood||''} 全天情绪整体${moodWord(d.mood)}`
+    ]
+  };
+  return d.summary;
+}
+
+/* ================= 首页 ================= */
+let curFilter = '';
+function renderFilterRow(){
+  const row = $('filterRow'); row.innerHTML='';
+  const mk = (label, val, sel) => {
+    const b = document.createElement('button');
+    b.className = 'f-chip' + (sel?' sel':''); b.textContent = label;
+    b.addEventListener('click',()=>{ curFilter=val; renderFilterRow(); renderTimeline(); });
+    row.appendChild(b);
+  };
+  mk('全部日记', '', curFilter==='');
+  TAGS.forEach(t=> mk(`${t.emoji} ${t.name}`, t.id, curFilter===t.id));
+}
+function renderTimeline(){
+  const tl = $('timeline'); tl.innerHTML='';
+  const list = diaries.filter(d=> !curFilter || d.tags.includes(curFilter));
+  if(!list.length){
+    tl.innerHTML = diaries.length
+      ? '<div style="text-align:center;color:var(--ink3);font-size:13px;padding:40px 0">该标签下暂无日记</div>'
+      : `<div style="text-align:center;color:var(--ink3);font-size:13.5px;padding:64px 24px;line-height:2.1">
+           还没有日记<br>点右下角 <b style="color:var(--primary);font-size:17px">＋</b> 写下第一条<br>
+           <span style="font-size:12px">想先看效果：我的 → 本地数据 → 载入示例</span>
+         </div>`;
+  }
+  const byMonth = new Map();
+  list.forEach((d,i)=>{
+    const key = `${d.date.getFullYear()}年${d.date.getMonth()+1}月`;
+    if(!byMonth.has(key)) byMonth.set(key,[]);
+    byMonth.get(key).push([d, diaries.indexOf(d)]);
+  });
+  byMonth.forEach((items,month)=>{
+    const ml = document.createElement('div'); ml.className='month-label'; ml.textContent=month; tl.appendChild(ml);
+    items.forEach(([d,idx])=>{
+      if(!d.summary) generateSummary(d);
+      const locs = diaryLocs(d);
+      const typoN = d.entries.reduce((s,e)=>s+(e.transcriptHtml?typoCountOf(e.transcriptHtml):0),0);
+      const hasMedia = d.entries.some(e=>e.type!=='text');
+      const row = document.createElement('div'); row.className='d-row';
+      let meta = '';
+      d.tags.slice(0,3).forEach(id=>{
+        const t = tagOf(id); if(!t) return;
+        meta += `<span class="chip tag" style="color:${t.color};background:${t.color}22">${t.emoji} ${t.name}</span>`;
+      });
+      meta += `<span class="chip">⏱ ${d.entries.length} 个片段</span>`;
+      if(locs.length) meta += `<span class="chip">📍 ${locs.length}</span>`;
+      if(typoN) meta += `<span class="chip warn">✏️ ${typoN} 处待纠错</span>`;
+      else if(hasMedia) meta += `<span class="chip ok">✓ 已转写</span>`;
+      row.innerHTML = `
+        <div class="d-date"><div class="w">${WEEK[d.date.getDay()]}</div><div class="n">${d.date.getDate()}</div></div>
+        <div class="d-card">
+          <div style="font-size:12.5px;margin-bottom:6px;color:var(--ink2)">${d.weather||''} ${d.mood||''}</div>
+          <div class="sum">${d.summary.one}</div>
+          <div class="d-meta">${meta}</div>
+        </div>`;
+      row.querySelector('.d-card').addEventListener('click',()=>openDetail(idx));
+      tl.appendChild(row);
+    });
+  });
+  /* 统计 */
+  $('statDiary').textContent = diaries.length;
+  $('statEntry').textContent = diaries.reduce((s,d)=>s+d.entries.length,0);
+  $('statPhoto').textContent = diaries.reduce((s,d)=>s+d.entries.filter(e=>e.type==='photos').reduce((x,e)=>x+e.photos.length,0),0);
+  $('statTag').textContent = TAGS.length;
+  renderProfile(); /* 连续记录天数随日记变化刷新 */
+}
+
+/* ================= Tab ================= */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    $('view-home').classList.toggle('active',btn.dataset.tab==='home');
+    $('view-me').classList.toggle('active',btn.dataset.tab==='me');
+  });
+});
+$('searchBar').addEventListener('click',()=>toast('原型阶段：搜索为演示占位'));
+$('cloudBtn').addEventListener('click',()=>toast('内容已实时存在这台手机上 · 换手机用「我的→导出备份」', true));
+
+/* ================= 新建日记（片段流） ================= */
+const compose = { weather:null, mood:null, tags:[], entries:[] };
+let lastFocusTextEl = null, savedRange = null;
+
+document.addEventListener('selectionchange',()=>{
+  const sel = document.getSelection();
+  if(sel.rangeCount){
+    const r = sel.getRangeAt(0);
+    const el = r.startContainer.parentElement ? r.startContainer.parentElement.closest('.e-text') : null;
+    if(el && $('view-compose').classList.contains('active')){ lastFocusTextEl = el; savedRange = r.cloneRange(); }
+  }
+});
+
+$('fabNew').addEventListener('click',()=>openCompose());
+/* target：要追加到的日期（从详情页"再记一笔"进入时传）；fromDetail：来源日记索引 */
+function openCompose(target, fromDetail){
+  Object.assign(compose,{ weather:null, mood:null, tags:[], entries:[], target:target||null, fromDetail:(fromDetail==null?null:fromDetail) });
+  $('moodRow').querySelectorAll('.pill').forEach(p=>p.classList.remove('sel'));
+  const now = new Date(), tgt = target || now;
+  const isToday = !target || sameDay(tgt, now);
+  $('composeDate').textContent = `${tgt.getMonth()+1}月${tgt.getDate()}日 ${WEEK[tgt.getDay()]}`;
+  $('composeSub').textContent = isToday
+    ? '今天 · 碎片随时记，每条都会记下时间点'
+    : `补记这一天 · 新片段的时间点记为现在（${fmtHM(now)}），原有片段时间不变`;
+  $('entryFlow').innerHTML='';
+  $('view-compose').classList.add('active');
+  $('tabbar').classList.add('hidden');
+  renderTagRow();
+  /* 不预置文字片段：第一段从工具栏自选形式（文字/照片/视频/录音） */
+  $('entryFlow').innerHTML = `<div class="empty-hint" id="emptyHint">
+    <div class="eh-ic">📝</div>
+    <div class="eh-t">这一刻想用什么记录？</div>
+    <div class="eh-s">点击下方工具栏选择形式<br>文字 · 照片 · 视频 · 录音 · 地点随记随加</div>
+  </div>`;
+}
+/* 补记模式下，新片段的时间戳落在目标日期（时刻用当下时钟），保证归入正确的那天 */
+function composeNow(){
+  const n = new Date();
+  if(!compose.target) return n;
+  const t = new Date(compose.target);
+  t.setHours(n.getHours(), n.getMinutes(), n.getSeconds(), 0);
+  return t;
+}
+$('btnCancel').addEventListener('click',()=>{
+  $('view-compose').classList.remove('active');
+  /* 详情页进来的取消：回详情页（其仍处于 active）；否则显示底栏回首页 */
+  if(compose.fromDetail != null && diaries[compose.fromDetail]){
+    $('view-detail').classList.add('active');
+  }else{
+    $('tabbar').classList.remove('hidden');
+  }
+});
+$('moodRow').querySelectorAll('.pill').forEach(p=>{
+  p.addEventListener('click',()=>{
+    const isW = 'w' in p.dataset;
+    $('moodRow').querySelectorAll(`.pill[data-${isW?'w':'m'}]`).forEach(x=>x.classList.remove('sel'));
+    p.classList.add('sel');
+    if(isW) compose.weather = p.dataset.w; else compose.mood = p.dataset.m;
+  });
+});
+
+/* --- 片段 DOM --- */
+function blkShell(entry){
+  const eh = $('emptyHint'); if(eh) eh.remove();
+  const blk = document.createElement('div');
+  blk.className = 'entry-blk'; blk.dataset.eid = entry.id;
+  blk.innerHTML = `
+    <div class="e-top">
+      <span class="e-time">${fmtHM(entry.time)}</span>
+      <button class="e-del">删除片段</button>
+    </div>
+    <div class="e-body"></div>`;
+  blk.querySelector('.e-del').addEventListener('click',()=>{
+    compose.entries = compose.entries.filter(e=>e.id!==entry.id);
+    blk.remove();
+  });
+  return blk;
+}
+function addTextEntry(autofocus = true){
+  const entry = { id:uid(), type:'text', time:composeNow(), html:'' };
+  compose.entries.push(entry);
+  const blk = blkShell(entry);
+  const txt = document.createElement('div');
+  txt.className='e-text'; txt.contentEditable='true';
+  txt.dataset.ph='这一刻想说点什么…（地点按钮可把地点插在光标处）';
+  blk.querySelector('.e-body').appendChild(txt);
+  $('entryFlow').appendChild(blk);
+  if(autofocus){ txt.focus(); txt.scrollIntoView({block:'nearest'}); }
+  return txt;
+}
+$('toolText').addEventListener('click',()=>{
+  /* 若最后的文本片段为空则聚焦，否则新建 */
+  const blocks = [...$('entryFlow').querySelectorAll('.entry-blk')];
+  for(let i=blocks.length-1;i>=0;i--){
+    const e = compose.entries.find(x=>x.id===blocks[i].dataset.eid);
+    if(e && e.type==='text'){
+      const el = blocks[i].querySelector('.e-text');
+      if(!textOfHtml(el.innerHTML)){ el.focus(); return; }
+      break;
+    }
+  }
+  addTextEntry();
+});
+
+/* --- 内联地点插入 --- */
+function insertLocToText(el, name, addr){
+  el.focus();
+  const sel = document.getSelection();
+  let range;
+  if(savedRange && lastFocusTextEl===el){
+    range = savedRange;
+  } else {
+    range = document.createRange();
+    range.selectNodeContents(el); range.collapse(false);
+  }
+  sel.removeAllRanges(); sel.addRange(range);
+  range.deleteContents();
+  const sp = document.createElement('span');
+  sp.className='inline-loc'; sp.contentEditable='false';
+  sp.dataset.name=name; sp.dataset.addr=addr||'';
+  sp.textContent = '📍 '+name;
+  const tail = document.createTextNode('\u00A0');
+  range.insertNode(tail); range.insertNode(sp);
+  range.setStartAfter(tail); range.collapse(true);
+  sel.removeAllRanges(); sel.addRange(range);
+  lastFocusTextEl = el; savedRange = range.cloneRange();
+}
+$('toolPin').addEventListener('click',()=>{
+  if(recState!=='idle'){ toast('正在录音，先停止录音再插入地点'); return; }
+  $('mapMask').classList.add('show');
+});
+function pickPoi(p){
+  let el = (lastFocusTextEl && document.contains(lastFocusTextEl)) ? lastFocusTextEl : null;
+  if(!el){
+    const blocks = [...$('entryFlow').querySelectorAll('.entry-blk')];
+    for(let i=blocks.length-1;i>=0;i--){
+      const e = compose.entries.find(x=>x.id===blocks[i].dataset.eid);
+      if(e && e.type==='text'){ el = blocks[i].querySelector('.e-text'); break; }
+    }
+  }
+  if(!el) el = addTextEntry();
+  insertLocToText(el, p.name, p.addr);
+  $('mapMask').classList.remove('show');
+  toast(`已插入地点：${p.name}`, true);
+}
+
+/* --- 照片 --- */
+/* 草稿全部媒体（照片+视频，跨片段按时间顺序，供查看器统一切换） */
+function composeMedia(){
+  const all=[];
+  compose.entries.forEach(en=>{
+    if(en.type==='photos') en.photos.forEach(p=>{ if(p.src) all.push({src:p.src, live:!!p.live, time:en.time}); });
+    if(en.type==='video') all.push({video:true, eid:en.id, src:en.video.src, poster:en.video.poster, duration:en.video.duration, time:en.time});
+  });
+  return all;
+}
+/* 片段照片渲染：≤4 张平铺网格，≥5 张堆叠相纸 */
+function renderPhotoStrip(entry, box, holder){
+  const stack = entry.photos.length >= 5;
+  box.className = stack ? 'stack-row' : 'photo-grid';
+  box.innerHTML = '';
+  entry.photos.forEach(p=>{
+    if(!p.src) return;
+    const w = document.createElement('span');
+    w.className = (stack?'st-card':'pg-w') + (p.live?' live':'');
+    const img = document.createElement('img');
+    if(!stack) img.className='pg';
+    img.src = p.src;
+    w.appendChild(img); box.appendChild(w);
+    img.addEventListener('click',()=>{
+      const list = composeMedia();
+      openViewer(list, list.findIndex(x=>x.src===p.src));
+    });
+  });
+  let hint = holder.querySelector('.st-hint');
+  if(stack){
+    if(!hint){ hint = document.createElement('div'); hint.className='st-hint'; holder.appendChild(hint); }
+    hint.textContent = `‹ 左右滑动翻看 · 共 ${entry.photos.length} 张 · 点开大图可跨片段切换 ›`;
+  } else if(hint) hint.remove();
+}
+$('toolPhoto').addEventListener('click',()=>{
+  if(recState!=='idle'){ toast('正在录音，先停止录音再添加照片'); return; }
+  $('filePhoto').click();
+});
+$('filePhoto').addEventListener('change',e=>{
+  const files=[...e.target.files]; if(!files.length) return;
+  const entry = { id:uid(), type:'photos', time:composeNow(), photos:[] };
+  compose.entries.push(entry);
+  const blk = blkShell(entry);
+  const strip = document.createElement('div');
+  blk.querySelector('.e-body').appendChild(strip);
+  $('entryFlow').appendChild(blk);
+  files.forEach(f=>{
+    const rd = new FileReader();
+    rd.onload = ()=>{
+      entry.photos.push({src:rd.result});
+      renderPhotoStrip(entry, strip, blk.querySelector('.e-body'));
+    };
+    rd.readAsDataURL(f);
+  });
+  blk.scrollIntoView({block:'nearest'});
+  e.target.value='';
+});
+
+/* --- 视频 --- */
+$('toolVideo').addEventListener('click',()=>{
+  if(recState!=='idle'){ toast('正在录音，先停止录音再添加视频'); return; }
+  $('fileVideo').click();
+});
+$('fileVideo').addEventListener('change',e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const key = 'v_'+uid();
+  const entry = { id:uid(), type:'video', time:composeNow(),
+    video:{ src:URL.createObjectURL(f), idbKey:key, emoji:'🎬', duration:'—' }, transcriptHtml:null };
+  compose.entries.push(entry);
+  /* 原始视频文件落盘 IndexedDB：刷新/重启后仍可播放，并能进备份迁移到新手机 */
+  idbPut(key, f).catch(()=>toast('视频体积较大，仅本次会话可播放'));
+  const blk = blkShell(entry);
+  blk.querySelector('.e-body').innerHTML = `
+    <div class="video-box">
+      <video src="${entry.video.src}" controls style="width:100%;height:100%;object-fit:cover;border-radius:16px"></video>
+    </div>
+    <div class="trans-loading" style="margin-top:8px"><span class="spinner"></span>正在提取音轨并转写…</div>`;
+  $('entryFlow').appendChild(blk);
+  blk.scrollIntoView({block:'nearest'});
+  setTimeout(()=>{
+    entry.transcriptHtml = SIMU_VIDEO_TRANSCRIPT;
+    blk.querySelector('.e-body').innerHTML = '';
+    blk.querySelector('.e-body').appendChild(videoCardEl(entry));
+    blk.querySelector('.e-body').appendChild(transCardEl(entry, true));
+    toast('视频已保存，音轨转写完成');
+  }, 1600);
+  e.target.value='';
+});
+function videoCardEl(entry){
+  const v = entry.video;
+  const box = document.createElement('div'); box.className='video-box';
+  box.innerHTML = v.src
+    ? `<video src="${v.src}" controls style="width:100%;height:100%;object-fit:cover;border-radius:16px"></video>`
+    : `${v.poster
+        ? `<img class="v-poster" src="${v.poster}">`
+        : `<div class="v-cover" style="background:${GRADS[v.g||2]}">${v.emoji}</div>`}
+      <div class="v-play">▶</div><span class="v-dur">${v.duration}</span>`;
+  /* 点封面进大图查看（真实视频文件在大图中直接播放；video 控件上点击则原位播放） */
+  box.addEventListener('click',e=>{
+    if(e.target.tagName==='VIDEO') return;
+    const list = composeMedia();
+    openViewer(list, list.findIndex(x=>x.eid===entry.id));
+  });
+  return box;
+}
+
+/* --- 录音 --- */
+let recState='idle', recTimer=null, recSec=0, recEntry=null, recBlk=null;
+$('toolMic').addEventListener('click',()=>{
+  if(recState==='idle') startRec();
+  else if(recState==='recording') stopRec();
+});
+function startRec(){
+  recState='recording'; recSec=0;
+  $('micLabel').textContent='停止'; $('toolMic').classList.add('rec-on');
+  recEntry = { id:uid(), type:'audio', time:composeNow(), audio:{duration:'0:00'}, transcriptHtml:null };
+  compose.entries.push(recEntry);
+  recBlk = blkShell(recEntry);
+  recBlk.querySelector('.e-body').innerHTML = `
+    <div class="rec-bar">
+      <span class="rec-dot"></span>
+      <div class="rec-wave">${Array.from({length:20},(_,i)=>`<i style="animation-delay:${(i*0.08).toFixed(2)}s"></i>`).join('')}</div>
+      <span class="timer">0:00</span>
+      <button class="stop-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+    </div>`;
+  $('entryFlow').appendChild(recBlk);
+  recBlk.scrollIntoView({block:'nearest'});
+  recBlk.querySelector('.stop-btn').addEventListener('click',stopRec);
+  recTimer = setInterval(()=>{
+    recSec++;
+    const tm = recBlk.querySelector('.timer');
+    if(tm) tm.textContent = `${Math.floor(recSec/60)}:${String(recSec%60).padStart(2,'0')}`;
+  },1000);
+  toast('开始录音（原型模拟）…');
+}
+function stopRec(){
+  recState='transcribing'; clearInterval(recTimer);
+  $('micLabel').textContent='录音'; $('toolMic').classList.remove('rec-on');
+  const dur = `${Math.floor(recSec/60)}:${String(recSec%60).padStart(2,'0')}`;
+  recEntry.audio.duration = dur;
+  recBlk.querySelector('.e-body').innerHTML = `
+    <div class="audio-card"></div>
+    <div class="trans-loading" style="margin-top:8px"><span class="spinner"></span>正在转写，同时检查错别字…</div>`;
+  bindAudioCard(recBlk.querySelector('.audio-card'), dur);
+  const pick = SIMU_TRANSCRIPTS[Math.floor(Math.random()*SIMU_TRANSCRIPTS.length)];
+  setTimeout(()=>{
+    recEntry.transcriptHtml = pick;
+    recState='idle';
+    const body = recBlk.querySelector('.e-body');
+    body.innerHTML='';
+    body.appendChild(audioCardEl(recEntry));
+    body.appendChild(transCardEl(recEntry, true));
+    const n = typoCountOf(pick);
+    toast(n? `转写完成 · 发现 ${n} 处疑似错别字` : '转写完成', !n);
+  },1700);
+}
+function audioCardEl(entry){
+  const c = document.createElement('div'); c.className='audio-card';
+  bindAudioCard(c, entry.audio.duration);
+  return c;
+}
+function bindAudioCard(card, duration){
+  card.innerHTML = `
+    <button class="play-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M8 5.5v13l11-6.5z"/></svg></button>
+    <div class="audio-wave">${Array.from({length:24},(_,i)=>`<i style="height:${28+((i*37)%55)}%"></i>`).join('')}</div>
+    <span class="audio-dur">${duration}</span>`;
+  const btn = card.querySelector('.play-btn'), durEl = card.querySelector('.audio-dur');
+  let playing=false, t=null, cur=0, total=0;
+  const parts = duration.split(':').map(Number);
+  total = (parts[0]||0)*60+(parts[1]||0); cur = total;
+  btn.addEventListener('click',()=>{
+    playing=!playing;
+    card.classList.toggle('playing',playing);
+    if(playing){
+      t=setInterval(()=>{
+        cur--;
+        durEl.textContent = `${Math.floor(Math.max(cur,0)/60)}:${String(Math.max(cur,0)%60).padStart(2,'0')}`;
+        if(cur<=0){ clearInterval(t); playing=false; card.classList.remove('playing'); cur=total; durEl.textContent=duration; }
+      },1000);
+    } else { clearInterval(t); cur=total; durEl.textContent=duration; }
+  });
+}
+
+/* --- 转写卡（可编辑 + 一键纠错） --- */
+function transCardEl(entry, editable){
+  const card = document.createElement('div'); card.className='trans-card';
+  const from = entry.type==='video' ? '来自视频音轨' : '来自录音';
+  card.innerHTML = `
+    <div class="t-head">
+      <div class="t-title">✨ 转写 <span class="tag">${from}</span>${entry.loc?`<span class="tag">📍 ${entry.loc.name}</span>`:''}</div>
+      <div class="t-acts" style="display:flex;gap:6px"></div>
+    </div>
+    <div class="t-body${editable?' editing-shadow':''}" ${editable?'contenteditable="true"':''}></div>
+    <div class="t-hint"></div>`;
+  const body = card.querySelector('.t-body');
+  body.innerHTML = entry.transcriptHtml || '';
+  const acts = card.querySelector('.t-acts');
+  const fixBtn = document.createElement('button');
+  fixBtn.className='mini-btn'; fixBtn.textContent='一键纠错';
+  fixBtn.addEventListener('click',()=>{
+    const typos = [...body.querySelectorAll('.typo')];
+    if(!typos.length){ toast('没有需要纠错的字'); return; }
+    typos.forEach(sp=>sp.replaceWith(document.createTextNode(sp.dataset.fix)));
+    syncBack();
+    toast(`AI 已纠正 ${typos.length} 处错别字`, true);
+  });
+  acts.appendChild(fixBtn);
+
+  function updateMeta(){
+    const n = typoCountOf(body.innerHTML);
+    const hint = card.querySelector('.t-hint');
+    if(n) hint.innerHTML = `⚠️ ${n} 处疑似错别字 · 点击红色文字纠正 <span class="edit-tip">· 文字可直接点击编辑</span>`;
+    else hint.innerHTML = `<span class="ok" style="color:var(--green)">✓ 转写完成</span> <span class="edit-tip">· 文字可直接点击编辑</span>`;
+  }
+  function syncBack(){
+    entry.transcriptHtml = body.innerHTML;
+    updateMeta();
+    renderTimeline();
+    persist(); /* 编辑即落盘 */
+  }
+  body.addEventListener('input',()=>{
+    entry.__edited = true;
+    const hint = card.querySelector('.t-hint');
+    const n = typoCountOf(body.innerHTML);
+    hint.innerHTML = n ? `⚠️ ${n} 处疑似错别字 · <span style="color:var(--primary-deep)">已手动编辑</span>`
+                       : `<span style="color:var(--green)">✓ 转写完成</span> · <span style="color:var(--primary-deep)">已手动编辑</span>`;
+    persist(); /* 输入即落盘 */
+  });
+  body.querySelectorAll('.typo').forEach(sp=>{
+    sp.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      showTypoPop(sp, ()=>{ entry.transcriptHtml = body.innerHTML; updateMeta(); renderTimeline(); persist(); });
+    });
+  });
+  updateMeta();
+  return card;
+}
+
+/* --- 标签行 & 选择器 --- */
+function renderTagRow(){
+  const row = $('composeTagRow'); row.innerHTML='';
+  compose.tags.forEach(id=>{
+    const t = tagOf(id); if(!t) return;
+    const c = document.createElement('span'); c.className='tag-sel';
+    c.style.color = t.color; c.style.background = t.color+'22';
+    c.innerHTML = `${t.emoji} ${t.name} <span class="x">✕</span>`;
+    c.querySelector('.x').addEventListener('click',()=>{
+      compose.tags = compose.tags.filter(x=>x!==id); renderTagRow(); renderTagGrid();
+    });
+    row.appendChild(c);
+  });
+  const add = document.createElement('button'); add.className='tag-add';
+  add.textContent = '＋ 标签';
+  add.addEventListener('click',()=>{ renderTagGrid(); $('tagMask').classList.add('show'); });
+  row.appendChild(add);
+}
+function renderTagGrid(){
+  const grid = $('tagGrid'); grid.innerHTML='';
+  TAGS.forEach(t=>{
+    const sel = compose.tags.includes(t.id);
+    const dis = !sel && compose.tags.length>=3;
+    const c = document.createElement('button');
+    c.className = 't-chip' + (sel?' sel':'') + (dis?' dis':'');
+    c.innerHTML = `<span class="dot" style="background:${t.color}"></span>${t.emoji} ${t.name}`;
+    c.addEventListener('click',()=>{
+      if(sel){ compose.tags = compose.tags.filter(x=>x!==t.id); }
+      else{
+        if(compose.tags.length>=3){ toast('最多设置 3 个标签'); return; }
+        compose.tags.push(t.id);
+      }
+      renderTagRow(); renderTagGrid();
+    });
+    grid.appendChild(c);
+  });
+}
+$('newTagBtn').addEventListener('click',()=>{
+  const name = $('newTagInput').value.trim();
+  if(!name){ toast('请输入标签名称'); return; }
+  const colors = ['#3E9B6F','#4A7DBF','#C4703F','#8A6FBF','#D97B4A','#B0563F'];
+  const t = { id:'c'+Date.now(), name, emoji:'🏷', color:colors[TAGS.length%colors.length] };
+  TAGS.push(t); $('newTagInput').value='';
+  renderTagGrid(); renderFilterRow();
+  toast(`已创建标签「${name}」`, true);
+});
+$('newTagInput').addEventListener('keydown',e=>{ if(e.key==='Enter') $('newTagBtn').click(); });
+$('tagMask').addEventListener('click',e=>{ if(e.target===$('tagMask')) $('tagMask').classList.remove('show'); });
+
+/* --- 保存（含同日合并） --- */
+$('btnSave').addEventListener('click',()=>{
+  /* 收集文本片段内容 */
+  compose.entries.forEach(e=>{
+    if(e.type==='text'){
+      const blk = $('entryFlow').querySelector(`[data-eid="${e.id}"] .e-text`);
+      e.html = blk ? blk.innerHTML.trim() : '';
+    }
+    if(e.transcriptHtml !== null && e.transcriptHtml !== undefined){
+      const body = $('entryFlow').querySelector(`[data-eid="${e.id}"] .t-body`);
+      if(body) e.transcriptHtml = body.innerHTML;
+    }
+  });
+  const valid = compose.entries.filter(e=>{
+    if(e.type==='text') return e.html && e.html!=='<br>' && textOfHtml(e.html);
+    return true;
+  });
+  if(!valid.length){ toast('先写点什么，或添加录音/照片/视频'); return; }
+
+  const btn = $('btnSave');
+  btn.disabled=true; btn.classList.add('saving'); btn.textContent='保存中…';
+  $('cloudDot').classList.add('syncing');
+  setTimeout(()=>{
+    const target = compose.target || new Date();
+    const day = diaries.find(d=>sameDay(d.date, target));
+    if(day){
+      day.entries.push(...valid);
+      day.entries.sort((a,b)=>a.time-b.time);
+      const merged = [...new Set([...day.tags, ...compose.tags])].slice(0,3);
+      day.tags = merged;
+      if(compose.weather) day.weather = compose.weather;
+      if(compose.mood) day.mood = compose.mood;
+      generateSummary(day);
+      renderTimeline();
+      const isToday = sameDay(target, new Date());
+      toast(isToday ? `已追加 ${valid.length} 个片段到今天的日记` :
+        `已补记 ${valid.length} 个片段到 ${target.getMonth()+1}月${target.getDate()}日`, true);
+    } else {
+      const d = { date:new Date(target), weather:compose.weather, mood:compose.mood,
+        tags:[...compose.tags], entries:[...valid] };
+      generateSummary(d);
+      diaries.unshift(d);
+      diaries.sort((a,b)=>b.date-a.date);
+      renderTimeline();
+      toast('已保存到本机 · 今日总结已生成', true);
+    }
+    persist(); /* 落盘：断网/重启不丢 */
+    $('view-compose').classList.remove('active');
+    /* 从详情页"再记一笔"进来的：回到那篇详情并刷新；否则回首页 */
+    const fd = compose.fromDetail;
+    if(fd != null && diaries[fd]){
+      curDetail = fd;
+      renderDetail();
+      $('view-detail').classList.add('active');
+    }else{
+      $('tabbar').classList.remove('hidden');
+    }
+    btn.disabled=false; btn.classList.remove('saving'); btn.textContent='保存';
+    $('cloudDot').classList.remove('syncing');
+    $('lastSync').textContent='上次保存：刚刚';
+  },1200);
+});
+
+/* ================= 详情页 ================= */
+let curDetail = -1;
+function openDetail(i){
+  curDetail = i;
+  renderDetail();
+  $('view-detail').classList.add('active');
+  $('tabbar').classList.add('hidden');
+}
+$('btnBack').addEventListener('click',()=>{
+  $('view-detail').classList.remove('active');
+  $('tabbar').classList.remove('hidden');
+});
+/* 详情页 ···：真·操作菜单（删除整篇；长按片段删单个） */
+$('btnDetailMore').addEventListener('click',()=>$('moreMask').classList.add('show'));
+$('moreMask').addEventListener('click',e=>{
+  if(e.target===$('moreMask')) $('moreMask').classList.remove('show');
+});
+$('moreCancel').addEventListener('click',()=>$('moreMask').classList.remove('show'));
+$('delDiaryBtn').addEventListener('click',()=>{
+  $('moreMask').classList.remove('show');
+  const d = diaries[curDetail];
+  if(!d) return;
+  if(!confirm(`删除 ${d.date.getMonth()+1}月${d.date.getDate()}日 的整篇日记？\n共 ${d.entries.length} 个片段，删除后不可恢复。`)) return;
+  diaries.splice(curDetail,1);
+  persist(); renderFilterRow(); renderTimeline();
+  $('view-detail').classList.remove('active');
+  $('tabbar').classList.remove('hidden');
+  toast('已删除这篇日记', true);
+});
+
+function renderDetail(){
+  const d = diaries[curDetail];
+  if(!d.summary) generateSummary(d);
+  const body = $('detailBody');
+  const locs = diaryLocs(d);
+
+  /* 全天媒体（照片+视频，跨片段按时间顺序收集，供查看器统一切换） */
+  const dayMedia = [];
+  const mediaStart = new Map(); /* 片段序号 → 该片段媒体在全天列表中的起始下标 */
+  d.entries.forEach((e,ei)=>{
+    if(e.type==='photos'){
+      mediaStart.set(ei, dayMedia.length);
+      e.photos.forEach(p=>{ if(p.src) dayMedia.push({src:p.src, live:!!p.live, time:e.time}); });
+    }
+    if(e.type==='video'){
+      mediaStart.set(ei, dayMedia.length);
+      dayMedia.push({video:true, src:e.video.src, idbKey:e.video.idbKey, poster:e.video.poster, duration:e.video.duration, time:e.time});
+    }
+  });
+
+  let html = `
+    <div class="detail-date">
+      <div class="big">${d.date.getMonth()+1}月${d.date.getDate()}日 ${WEEK[d.date.getDay()]} · ${dayLabel(d.date)}</div>
+      <div class="sub">
+        <span>${d.weather||''} ${d.mood||''}</span>
+        <span>情绪 ${moodWord(d.mood)}</span>
+        <span class="detail-tags">${d.tags.map(id=>{const t=tagOf(id);return t?`<span class="chip tag" style="color:${t.color};background:${t.color}22">${t.emoji} ${t.name}</span>`:''}).join('')}</span>
+      </div>
+    </div>
+
+    <div class="d-block summary-card">
+      <div class="s-head">
+        <div class="s-title">✨ 今日总结 <span class="ai-tag">AI</span></div>
+        <button class="s-chat-btn" id="chatBtn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8.5 8.5 0 0 1-8.5 8.5c-1.3 0-2.6-.3-3.7-.8L3 21l1.3-4.6A8.5 8.5 0 1 1 21 12z"/></svg>
+          对话梳理
+        </button>
+      </div>
+      <div class="s-one">${d.summary.one}</div>
+      <ul class="s-bullets">${d.summary.bullets.map(b=>`<li>${b}</li>`).join('')}</ul>
+    </div>`;
+
+  /* 片段流 */
+  d.entries.forEach((e,ei)=>{
+    html += `<div class="entry-blk"><div class="e-top"><span class="e-time">${fmtHM(e.time)}</span></div><div class="e-body">`;
+    if(e.type==='text') html += `<div class="d-text" data-ei="${ei}">${e.html}</div>`;
+    if(e.type==='photos'){
+      const s0 = mediaStart.get(ei);
+      /* 少图平铺一眼全览，多图（≥5）堆叠相纸左右翻看 */
+      if(e.photos.length >= 5){
+        html += `<div class="stack-row">${e.photos.map((p,pi)=> p.src
+          ? `<span class="st-card${p.live?' live':''}" data-gi="${s0+pi}"><img src="${p.src}"></span>`
+          : `<div class="pg" style="background:${GRADS[p.g||0]}">${p.emoji}</div>`).join('')}</div>
+          <div class="st-hint">‹ 左右滑动翻看 · 共 ${e.photos.length} 张 · 点开大图可跨片段切换全天媒体 ›</div>`;
+      } else {
+        html += `<div class="photo-grid" data-ei="${ei}">${e.photos.map((p,pi)=> p.src
+          ? `<span class="pg-w${p.live?' live':''}" data-gi="${s0+pi}"><img class="pg" src="${p.src}"></span>`
+          : `<div class="pg" style="background:${GRADS[p.g||0]}">${p.emoji}</div>`).join('')}</div>`;
+      }
+    }
+    if(e.type==='video'){
+      const gi = mediaStart.get(ei);
+      const vstyle = 'width:100%;height:100%;object-fit:cover;border-radius:16px';
+      html += `<div class="video-box" data-gi="${gi}">${e.video.src
+        ? `<video src="${e.video.src}" controls style="${vstyle}"></video>`
+        : (e.video.idbKey
+            /* 本机视频：先显示加载占位，随后从 IndexedDB 取出真实文件填入 */
+            ? `<div class="v-cover" style="background:${GRADS[2]}">⏳</div>`
+            : `${e.video.poster
+                ? `<img class="v-poster" src="${e.video.poster}">`
+                : `<div class="v-cover" style="background:${GRADS[e.video.g||2]}">${e.video.emoji}</div>`}
+              <div class="v-play">▶</div><span class="v-dur">${e.video.duration}</span>`)}</div>`;
+    }
+    if(e.type==='audio') html += `<div class="audio-card" id="ac-${e.id}"></div>`;
+    html += `</div></div>`;
+  });
+
+  /* 地点汇总 */
+  if(locs.length){
+    html += `<div class="d-block">
+      <div class="b-title"><span>📍 今日地点 · ${locs.length}</span><span style="font-size:11.5px;color:var(--ink3)">按记录时间排序</span></div>
+      <div class="loc-list">${locs.map(l=>`
+        <div class="loc-item">
+          <span class="l-time">${fmtHM(l.time)}</span>
+          <span class="l-dot"></span>
+          <div><div class="l-name">${l.name}</div>${l.addr?`<div class="l-addr">${l.addr}</div>`:''}</div>
+        </div>`).join('')}</div>
+    </div>`;
+  }
+
+  html += `<button class="add-more" id="btnAddMore">＋ 再记一笔 · 往这天补片段</button>
+  <div class="sync-foot">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 18a4.5 4.5 0 0 1-.4-9A6 6 0 0 1 17.7 8.5 4 4 0 0 1 17.5 18z"/></svg>
+    已自动存本机 · 备份可从「我的」导出</div>`;
+  body.innerHTML = html;
+
+  /* 逐片段插入转写卡到其 e-body 末尾（录音/视频与其转写文字绑定在一起） */
+  d.entries.forEach((e,i)=>{
+    if(!e.transcriptHtml) return;
+    const blkEl = body.querySelectorAll('.entry-blk')[i].querySelector('.e-body');
+    blkEl.appendChild(transCardEl(e, true));
+  });
+
+  /* 音频播放模拟 */
+  d.entries.filter(e=>e.type==='audio').forEach(e=>{
+    const el = body.querySelector(`#ac-${e.id}`);
+    if(el) bindAudioCard(el, e.audio.duration);
+  });
+
+  body.querySelector('#chatBtn').addEventListener('click',()=>openAgent(curDetail));
+
+  /* 再记一笔：以这天为目标打开新建（新片段时间=现在，原有片段时间不变） */
+  body.querySelector('#btnAddMore').addEventListener('click',()=>openCompose(new Date(d.date), curDetail));
+
+  /* 文字片段点击即改：改完失焦保存，时间点保持最初 */
+  body.querySelectorAll('.d-text').forEach(el=>{
+    const ei = +el.dataset.ei;
+    el.addEventListener('click',()=>{
+      if(el.isContentEditable) return;
+      el.contentEditable = 'true';
+      el.classList.add('editing');
+      el.focus();
+      const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    el.addEventListener('blur',()=>{
+      if(!el.isContentEditable) return;
+      el.contentEditable = 'false';
+      el.classList.remove('editing');
+      const dd = diaries[curDetail]; if(!dd) return;
+      const ent = dd.entries[ei]; if(!ent) return;
+      const nh = el.innerHTML.trim();
+      if(nh !== (ent.html||'')){
+        ent.html = nh;
+        generateSummary(dd);
+        persist(); renderTimeline();
+        toast('已保存修改 · 时间点不变', true);
+      }
+    });
+  });
+
+  /* 点击照片/视频 → 全屏查看（跨片段切换全天媒体；真实视频文件在大图中直接播放） */
+  body.querySelectorAll('.photo-grid img.pg, .stack-row img').forEach(img=>{
+    img.addEventListener('click',()=> openViewer(dayMedia, +img.parentElement.dataset.gi));
+  });
+  body.querySelectorAll('.video-box').forEach(box=>{
+    box.addEventListener('click',e=>{
+      if(e.target.tagName==='VIDEO') return; /* 原生控件内直接播放 */
+      openViewer(dayMedia, +box.dataset.gi);
+    });
+  });
+  /* 本机视频：从 IndexedDB 取出真实文件填入播放器（刷新/重启后依然可播） */
+  d.entries.forEach((e,ei)=>{
+    if(e.type!=='video' || e.video.src || !e.video.idbKey) return;
+    videoSrc(e.video).then(url=>{
+      if(!url) return;
+      const box = body.querySelector(`.video-box[data-gi="${mediaStart.get(ei)}"]`);
+      if(box) box.innerHTML = `<video src="${url}" controls style="width:100%;height:100%;object-fit:cover;border-radius:16px"></video>`;
+    });
+  });
+  /* 长按片段删除（手机长按 0.6s / 电脑右键），删空则整篇移除；点文字编辑区不触发 */
+  const TYPE_NAME = { text:'文字', photos:'照片', video:'视频', audio:'录音' };
+  const inEditZone = t => t.closest && t.closest('.d-text, .trans-card, video, .audio-card, .add-more');
+  const delFragment = ei=>{
+    const d = diaries[curDetail]; if(!d) return;
+    const e = d.entries[ei]; if(!e) return;
+    if(!confirm(`删除 ${fmtHM(e.time)} 的这个${TYPE_NAME[e.type]||''}片段？`)) return;
+    d.entries.splice(ei,1);
+    if(!d.entries.length){
+      diaries.splice(curDetail,1);
+      persist(); renderFilterRow(); renderTimeline();
+      $('view-detail').classList.remove('active');
+      $('tabbar').classList.remove('hidden');
+      toast('片段已删空 · 这篇日记一并删除', true);
+    }else{
+      generateSummary(d);
+      persist(); renderFilterRow(); renderTimeline();
+      renderDetail();
+      toast('片段已删除', true);
+    }
+  };
+  body.querySelectorAll('.entry-blk').forEach((blk,ei)=>{
+    let t = null;
+    blk.addEventListener('touchstart',ev=>{ if(inEditZone(ev.target)) return; t = setTimeout(()=>{ t = null; delFragment(ei); }, 600); }, {passive:true});
+    blk.addEventListener('touchend', ()=>{ if(t){ clearTimeout(t); t = null; } });
+    blk.addEventListener('touchmove', ()=>{ if(t){ clearTimeout(t); t = null; } });
+    blk.addEventListener('contextmenu',ev=>{ ev.preventDefault(); if(inEditZone(ev.target)) return; delFragment(ei); });
+  });
+
+  renderTimeline();
+}
+
+/* ================= AI 对话梳理 ================= */
+let agentIdx = -1;
+function openAgent(i){
+  agentIdx = i;
+  const d = diaries[i];
+  if(!d.summary) generateSummary(d);
+  $('agentBody').innerHTML='';
+  pushMsg('ai', `我已经读完你 ${d.date.getMonth()+1}月${d.date.getDate()}日 的日记啦 ✨<br><br>${d.summary.one}<br><br>可以问我任何关于这一天的问题，或点下方的快捷提问。`);
+  $('view-agent').classList.add('active');
+  setTimeout(()=>$('agentInput').focus(), 350);
+}
+$('btnAgentBack').addEventListener('click',()=> $('view-agent').classList.remove('active'));
+
+function pushMsg(who, html){
+  const wrap = document.createElement('div');
+  wrap.className = 'msg ' + (who==='me'?'me':'ai');
+  const bub = document.createElement('div'); bub.className='bubble';
+  bub.innerHTML = html.replace(/<quote>([\s\S]*?)<\/quote>/g, (m,c)=>`<div class="msg-quote">${c}</div>`);
+  wrap.appendChild(bub);
+  $('agentBody').appendChild(wrap);
+  $('agentBody').scrollTop = $('agentBody').scrollHeight;
+  return bub;
+}
+function pushTyping(){
+  const wrap = document.createElement('div');
+  wrap.className='msg ai'; wrap.id='typingMsg';
+  wrap.innerHTML = `<div class="bubble"><div class="typing"><i></i><i></i><i></i></div></div>`;
+  $('agentBody').appendChild(wrap);
+  $('agentBody').scrollTop = $('agentBody').scrollHeight;
+}
+function agentReply(q){
+  const d = diaries[agentIdx];
+  const s = d.summary;
+  if(/情绪|心情|感受|压力|累/.test(q))
+    return `从今天的记录看，你的主导情绪是「${moodWord(d.mood)}」${d.weather?`，配合 ${d.weather} 的天气`:''}。<br><br>整体节奏是「白天外出 · 下午独处」的搭配，录音里的语气比较松弛，文字片段里那句「就很好」也很放松。<br><br>如果愿意，睡前可以再补一条 30 秒语音，把今天最想留住的瞬间说给自己听。`;
+  if(/地点|去了哪|哪里|路线|足迹/.test(q)){
+    const locs = diaryLocs(d);
+    return locs.length
+      ? `今天你一共去了 ${locs.length} 个地方：<br><br>${locs.map(l=>`📍 <b>${l.name}</b>（${fmtHM(l.time)}）`).join('<br>')}<br><br>基本是从户外到室内的动线，安排得很舒服。`
+      : '今天没有记录地点哦。下次记录时可以把地点插在文字里，方便回看足迹。';
+  }
+  if(/一句话|简短|概括|总结/.test(q))
+    return `一句话版本：<br><br>「${s.one.replace(/。$/,'')}。」`;
+  if(/做了什么|概览|回顾|内容|记录了/.test(q))
+    return `${s.one}<br><br>${s.bullets.map(b=>`· ${b}`).join('<br>')}`;
+  if(/建议|明天|计划|提醒/.test(q)){
+    const locs = diaryLocs(d);
+    return `基于今天的记录，给明天的 3 个小建议：<br><br>1. 今天 22 点后没有新记录，明晚可以试试睡前语音速记 1 分钟；<br>2. ${locs[0]?`「${locs[0].name}」附近还有可以探索的地方，列入明天清单？`:'明天出门时记得记录一个地点，攒自己的足迹地图'}<br>3. 情绪状态${moodWord(d.mood)}，保持当前的记录频率就很好。`;
+  }
+  return `我还没完全理解这个问题 😅 不过你今天记录了 ${d.entries.length} 个片段，主线是「${firstSnippet(d,18)}」。<br><br>换个问法试试？比如「去了哪些地方」「情绪怎么样」。`;
+}
+function sendAgent(text){
+  const q = (text || $('agentInput').value).trim();
+  if(!q) return;
+  $('agentInput').value='';
+  pushMsg('me', esc(q));
+  pushTyping();
+  setTimeout(()=>{
+    const tp = $('typingMsg'); if(tp) tp.remove();
+    pushMsg('ai', agentReply(q));
+  }, 900);
+}
+$('agentSend').addEventListener('click',()=>sendAgent());
+$('agentInput').addEventListener('keydown',e=>{ if(e.key==='Enter') sendAgent(); });
+$('quickRow').querySelectorAll('.q-chip').forEach(c=>{
+  c.addEventListener('click',()=>sendAgent(c.dataset.q));
+});
+
+/* ================= 地图 POI ================= */
+const POIS = [
+  {ic:'🏠', name:'家',           addr:'徐汇区 · 永嘉路',      dist:'此处'},
+  {ic:'☕️', name:'半层书店',     addr:'虹口区哈尔滨路129号',  dist:'1.2km'},
+  {ic:'🌳', name:'鲁迅公园',     addr:'虹口区四川北路2288号', dist:'1.8km'},
+  {ic:'🍜', name:'老弄堂面馆',   addr:'黄浦区天津路',         dist:'3.5km'},
+  {ic:'🌊', name:'滨江步道',     addr:'浦东新区民生路渡口',   dist:'5.1km'},
+];
+$('poiList').innerHTML = POIS.map((p,i)=>`
+  <div class="poi" data-i="${i}">
+    <div class="p-ic">${p.ic}</div>
+    <div><div class="p-name">${p.name}</div><div class="p-addr">${p.addr}</div></div>
+    <div class="p-dist">${p.dist}</div>
+  </div>`).join('');
+$('poiList').querySelectorAll('.poi').forEach(el=>{
+  el.addEventListener('click',()=>pickPoi(POIS[+el.dataset.i]));
+});
+$('mapMask').addEventListener('click',e=>{
+  if(e.target===$('mapMask')) $('mapMask').classList.remove('show');
+});
+
+/* ================= 媒体查看器（照片 + 视频，跨片段统一切换） ================= */
+let vList=[], vIdx=0, vPressT=null;
+function openViewer(list, idx){
+  vList = (list||[]).filter(p=>p.src || (p.video && (p.src || p.poster)));
+  if(!vList.length) return;
+  vIdx = Math.max(0, Math.min(idx||0, vList.length-1));
+  $('viewer').classList.add('show');
+  showV();
+}
+function closeViewer(){
+  $('vVideo').pause();
+  $('viewer').classList.remove('show');
+}
+async function showV(){
+  const p = vList[vIdx];
+  const img = $('vImg'), vid = $('vVideo'), demo = $('vDemoPlay');
+  vid.pause(); vid.classList.remove('show'); demo.classList.remove('show');
+  img.style.display='none';
+  if(p.video){
+    /* 视频：有源文件直接大屏播放；无源时从本机 IndexedDB 取；演示数据则显示封面 */
+    const url = p.src || (p.idbKey ? await videoSrc({idbKey:p.idbKey}) : null);
+    if(url){
+      vid.src = url; vid.classList.add('show');
+      vid.play().catch(()=>{});
+    } else {
+      img.style.display='block'; img.src = p.poster;
+      demo.classList.add('show');
+    }
+  } else {
+    img.style.display='block';
+    img.classList.remove('playing'); img.src = p.src;
+  }
+  $('vCount').textContent = `${vIdx+1} / ${vList.length}`;
+  const live = $('vLive');
+  if(p.live){ live.classList.add('show'); live.textContent='◉ LIVE · 长按图片播放动态'; }
+  else live.classList.remove('show');
+  /* 所属片段的拍摄时间点 */
+  const vt = $('vTime');
+  if(p.time){ vt.textContent = `🕒 ${fmtHM(p.time)}`; vt.classList.add('show'); }
+  else vt.classList.remove('show');
+  /* 媒体类型角标 */
+  const ty = $('vType');
+  ty.textContent = p.video ? `🎬 视频 ${p.duration||''}` : '📷 照片';
+  ty.classList.add('show');
+}
+function vGo(n){ vIdx = (vIdx+n+vList.length)%vList.length; showV(); }
+$('vClose').addEventListener('click',closeViewer);
+$('vPrev').addEventListener('click',()=>vGo(-1));
+$('vNext').addEventListener('click',()=>vGo(1));
+$('viewer').addEventListener('click',e=>{ if(e.target===$('viewer')) closeViewer(); });
+$('vDemoPlay').addEventListener('click',()=>toast('原型演示视频 · 正式版在此直接播放'));
+/* Live 图：长按 400ms 播放动态（原型用动画模拟，正式版播放 3 秒视频） */
+$('vImg').addEventListener('pointerdown',()=>{
+  if(!vList[vIdx] || !vList[vIdx].live) return;
+  vPressT = setTimeout(()=>{
+    const img = $('vImg');
+    img.classList.remove('playing'); void img.offsetWidth;
+    img.classList.add('playing');
+  }, 400);
+});
+['pointerup','pointerleave','pointercancel'].forEach(ev=>
+  $('vImg').addEventListener(ev,()=>clearTimeout(vPressT)));
+/* 桌面演示：← → 切换，Esc 关闭 */
+addEventListener('keydown',e=>{
+  if(!$('viewer').classList.contains('show')) return;
+  if(e.key==='ArrowLeft') vGo(-1);
+  if(e.key==='ArrowRight') vGo(1);
+  if(e.key==='Escape') closeViewer();
+});
+
+/* ================= 错别字气泡 ================= */
+let popCtx = null;
+function showTypoPop(sp, onSync){
+  const pop = $('typoPop');
+  $('tpWrong').textContent = sp.textContent;
+  $('tpRight').textContent = sp.dataset.fix;
+  pop.classList.add('show');
+  const sr = $('screen').getBoundingClientRect();
+  const r = sp.getBoundingClientRect();
+  popCtx = { sp, onSync };
+  let x = r.left - sr.left + r.width/2 - 110;
+  x = Math.max(12, Math.min(x, sr.width-240));
+  let y = r.top - sr.top - 92;
+  if(y < 56) y = r.bottom - sr.top + 10;
+  pop.style.left = x+'px'; pop.style.top = y+'px';
+}
+$('tpFix').addEventListener('click',()=>{
+  if(!popCtx) return;
+  const {sp,onSync} = popCtx;
+  const fix = sp.dataset.fix, wrong = sp.textContent;
+  sp.replaceWith(document.createTextNode(fix));
+  hidePop(); onSync && onSync();
+  toast(`已替换：「${wrong}」→「${fix}」`, true);
+});
+$('tpIgnore').addEventListener('click',()=>{
+  if(!popCtx) return;
+  const {sp,onSync} = popCtx;
+  sp.classList.remove('typo'); sp.removeAttribute('contenteditable'); sp.removeAttribute('data-fix');
+  hidePop(); onSync && onSync();
+  toast('已忽略该提示');
+});
+function hidePop(){ $('typoPop').classList.remove('show'); popCtx=null; }
+$('screen').addEventListener('click',e=>{
+  if(popCtx && !e.target.closest('.typo-pop') && !e.target.closest('.typo')) hidePop();
+}, true);
+
+/* ================= 我的页开关 ================= */
+/* 资料：真实连续记录天数 + 编辑（昵称/头像，存本机、随备份迁移） */
+const AVATARS = ['柚','茶','猫','狗','花','月','晴','咖','果','鹿','熊','鲸'];
+function streakDays(){
+  const days = new Set(diaries.map(d=>{ const t=new Date(d.date); return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`; }));
+  const key = t=>`${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
+  let n = 0; const cur = new Date();
+  if(!days.has(key(cur))) cur.setDate(cur.getDate()-1); /* 今天还没记，从昨天起算不打断连签 */
+  while(days.has(key(cur))){ n++; cur.setDate(cur.getDate()-1); }
+  return n;
+}
+/* 头像渲染：有照片用背景图，否则用 emoji */
+function setAvatar(el, avatar, emoji){
+  if(avatar){
+    el.classList.add('has-photo');
+    el.style.backgroundImage = `url(${avatar})`;
+    el.textContent = '';
+  }else{
+    el.classList.remove('has-photo');
+    el.style.backgroundImage = '';
+    el.textContent = emoji;
+  }
+}
+function renderProfile(){
+  setAvatar($('meAvatar'), profile.avatar, profile.emoji);
+  $('meName').textContent = profile.name;
+  const s = streakDays();
+  $('meStreak').textContent = s>0 ? `已连续记录 ${s} 天 🔥` : '今天记一篇，开始连签吧';
+}
+let pickEmoji = null, pickAvatar = null, emojiPicked = false; /* emojiPicked：用户主动选了 emoji（要取消照片） */
+function openProfileSheet(){
+  pickEmoji = profile.emoji;
+  pickAvatar = null;
+  emojiPicked = false;
+  $('nameInput').value = profile.name;
+  setAvatar($('pvAvatar'), profile.avatar, profile.emoji);
+  $('pvName').textContent = profile.name;
+  $('emojiGrid').innerHTML = AVATARS.map(e=>
+    `<button class="${(e===pickEmoji && !profile.avatar)?'sel':''}" data-e="${e}">${e}</button>`).join('');
+  $('emojiGrid').querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      pickEmoji = b.dataset.e;
+      pickAvatar = null; /* 选了 emoji 就放弃照片 */
+      emojiPicked = true;
+      $('emojiGrid').querySelectorAll('button').forEach(x=>x.classList.toggle('sel', x===b));
+      setAvatar($('pvAvatar'), null, pickEmoji);
+    });
+  });
+  $('meMask').classList.add('show');
+}
+$('meHead').addEventListener('click', openProfileSheet);
+$('meMask').addEventListener('click',e=>{ if(e.target===$('meMask')) $('meMask').classList.remove('show'); });
+$('nameInput').addEventListener('input',()=>{ $('pvName').textContent = $('nameInput').value.trim() || profile.name; });
+/* 照片压缩：裁圆形头像用不着原图，压到 200px 存 Base64（约 10–20KB，localStorage 无压力） */
+function compressImage(file, max){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const scale = Math.min(max/img.width, max/img.height, 1);
+      const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      cv.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      res(cv.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); rej(new Error('图片读取失败')); };
+    img.src = url;
+  });
+}
+$('btnUploadAvatar').addEventListener('click', ()=>$('avatarFile').click());
+$('avatarFile').addEventListener('change', async e=>{
+  const file = e.target.files[0];
+  e.target.value = ''; /* 允许重复选同一张 */
+  if(!file) return;
+  if(!file.type.startsWith('image/')){ toast('请选择图片文件'); return; }
+  try{
+    pickAvatar = await compressImage(file, 200);
+    setAvatar($('pvAvatar'), pickAvatar, pickEmoji);
+    toast('照片已选，点保存生效', true);
+  }catch(err){ toast('照片处理失败，请换一张试试'); }
+});
+$('saveProfile').addEventListener('click',()=>{
+  const name = $('nameInput').value.trim();
+  if(!name){ toast('昵称不能为空'); return; }
+  profile = { name, emoji:pickEmoji || profile.emoji, avatar:pickAvatar !== null ? pickAvatar : (emojiPicked ? undefined : profile.avatar) };
+  persist(); renderProfile();
+  $('meMask').classList.remove('show');
+  toast('资料已保存', true);
+});
+$('icloudSwitch').addEventListener('click',e=>{
+  e.currentTarget.classList.toggle('off');
+  const off = e.currentTarget.classList.contains('off');
+  toast(off?'已暂停自动保存 · 新内容可能丢失，不建议关闭':'已开启自动保存 · 内容实时存到本机', !off);
+});
+$('autoTransSwitch').addEventListener('click',e=> e.currentTarget.classList.toggle('off'));
+$('nightSwitch').addEventListener('click',e=>{
+  settings.nightAuto = !settings.nightAuto;
+  e.currentTarget.classList.toggle('off', !settings.nightAuto);
+  applyTheme();
+  toast(settings.nightAuto?'夜间自动深色已开启（22:00–7:00）':'夜间自动深色已关闭');
+});
+document.querySelectorAll('.radio-g .rg[data-eng]').forEach(r=>{
+  r.addEventListener('click',()=>{
+    document.querySelectorAll('.radio-g .rg[data-eng]').forEach(x=>x.classList.remove('sel'));
+    r.classList.add('sel');
+    toast(r.dataset.eng==='cloud'?'已切换为云端 AI 纠错（更准，按量计费）':'已切换为设备端转写（免费 · 离线可用）');
+  });
+});
+
+/* ================= IndexedDB：视频原始文件存储（大容量，刷新/重启不丢） ================= */
+let __idb = null;
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    if(__idb) return res(__idb);
+    if(!window.indexedDB) return rej(new Error('no idb'));
+    const rq = indexedDB.open('shiguang-media', 1);
+    rq.onupgradeneeded = ()=> rq.result.createObjectStore('videos');
+    rq.onsuccess = ()=>{ __idb = rq.result; res(__idb); };
+    rq.onerror = ()=> rej(rq.error);
+  });
+}
+async function idbPut(key, blob){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction('videos','readwrite');
+    tx.objectStore('videos').put(blob, key);
+    tx.oncomplete = ()=>res();
+    tx.onerror = ()=>rej(tx.error);
+  });
+}
+async function idbGet(key){
+  const db = await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx = db.transaction('videos','readonly');
+    const rq = tx.objectStore('videos').get(key);
+    rq.onsuccess = ()=>res(rq.result);
+    rq.onerror = ()=>rej(rq.error);
+  });
+}
+/* idbKey → 播放地址（会话内缓存，避免重复取） */
+const __vURL = new Map();
+async function videoSrc(v){
+  if(!v) return null;
+  if(v.src && !String(v.src).startsWith('blob:')) return v.src; /* http 演示封面 */
+  if(v.src) return v.src; /* 本会话上传的，仍有效 */
+  if(!v.idbKey) return null;
+  if(__vURL.has(v.idbKey)) return __vURL.get(v.idbKey);
+  const blob = await idbGet(v.idbKey).catch(()=>null);
+  if(!blob) return null;
+  const u = URL.createObjectURL(blob);
+  __vURL.set(v.idbKey, u);
+  return u;
+}
+
+/* ================= 本地持久化（App 数据落盘） ================= */
+const LS_KEY = 'shiguang.v1';
+function persist(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      diaries: diaries.map(d=>({...d, date:d.date.toISOString(),
+        entries:(d.entries||[]).map(e=>{
+          const c = {...e, time:e.time.toISOString()};
+          /* 视频临时地址（blob:）刷新即失效，不落盘；真正的文件在 IndexedDB，靠 idbKey 找回 */
+          if(c.type==='video' && c.video){
+            const v = {...c.video};
+            if(typeof v.src==='string' && v.src.startsWith('blob:')) delete v.src;
+            c.video = v;
+          }
+          delete c.__edited;
+          return c;
+        })})),
+      settings, tags: TAGS, profile: { name:profile.name, emoji:profile.emoji, avatar:profile.avatar }
+    }));
+    const el = $('dataInfo');
+    if(el) el.textContent = `已自动保存 ${diaries.length} 篇日记 · 断网/重启不丢失`;
+  }catch(err){
+    /* 本机存储写满（照片过多）时提醒，不阻断使用 */
+    const el = $('dataInfo');
+    if(el) el.textContent = '⚠️ 本机存储已满，最新内容可能没存上 · 建议导出备份';
+  }
+}
+function restore(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return false;
+    const data = JSON.parse(raw);
+    if(Array.isArray(data.diaries) && data.diaries.length){
+      diaries = data.diaries.map(d=>({...d, date:new Date(d.date),
+        entries:(d.entries||[]).map(e=>{
+          const c = {...e, time:new Date(e.time)};
+          /* 历史版本可能存过失效的 blob: 地址，清掉，改由 IndexedDB 按需加载 */
+          if(c.type==='video' && c.video && typeof c.video.src==='string' && c.video.src.startsWith('blob:'))
+            c.video = {...c.video, src:null};
+          return c;
+        })}));
+    }
+    if(data.settings) Object.assign(settings, data.settings);
+    if(data.profile && data.profile.name) profile = data.profile;
+    if(Array.isArray(data.tags) && data.tags.length) TAGS = data.tags;
+    return true;
+  }catch(err){ return false; }
+}
+
+/* ================= 安装到主屏幕 ================= */
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+if(standalone) document.body.classList.add('pwa');
+function showInstallTip(text){
+  if(standalone || localStorage.getItem('shiguang.installed')) return;
+  $('installText').textContent = text;
+  $('installTip').classList.add('show');
+  setTimeout(()=>$('installTip').classList.remove('show'), 12000);
+}
+$('installClose').addEventListener('click',()=>{
+  localStorage.setItem('shiguang.installed','1');
+  $('installTip').classList.remove('show');
+});
+/* iOS Safari：引导添加到主屏幕；Chrome/Android：原生安装弹窗 */
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+let deferredPrompt = null;
+addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallTip('点此安装拾光日记到主屏幕，离线可用');
+  $('installTip').onclick = ()=>{
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.finally(()=>{ deferredPrompt = null; $('installTip').classList.remove('show'); });
+  };
+});
+setTimeout(()=>{
+  if(isIOS && !deferredPrompt) showInstallTip('安装到主屏幕：Safari 分享按钮 → 添加到主屏幕');
+}, 2500);
+
+/* ================= 分享给朋友 ================= */
+const isLocalFile = location.protocol === 'file:';
+const shareText = '拾光日记 · 随手记生活的离线日记 App。iPhone：Safari 打开 → 分享 → 添加到主屏幕；Android：Chrome 打开 → 菜单 → 安装应用';
+if(isLocalFile){
+  $('shareHint').textContent = '当前是本地文件：把整个 diary-app 文件夹压缩成 zip 发给朋友，对方解压后打开 index.html 即可使用';
+}
+function copyAppLink(){
+  if(isLocalFile){ toast('本地文件没有链接，请直接发送文件夹', false); return; }
+  const done = ()=>toast('链接已复制，发给朋友即可', true);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(location.href).then(done, ()=>toast('复制失败，请手动复制地址栏链接'));
+  }else{
+    const ta = document.createElement('textarea');
+    ta.value = location.href; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); done();
+  }
+}
+$('btnShareApp').addEventListener('click', async ()=>{
+  if(isLocalFile){ toast('本地文件请直接发送 diary-app 文件夹', false); return; }
+  if(navigator.share){
+    try{ await navigator.share({ title:'拾光日记', text:shareText, url:location.href }); }catch(e){ /* 用户取消 */ }
+  }else{
+    copyAppLink();
+  }
+});
+$('btnCopyLink').addEventListener('click', copyAppLink);
+$('btnShareGuide').addEventListener('click', ()=>{
+  alert([
+    '如何让朋友装上「拾光日记」',
+    '',
+    isLocalFile
+      ? '1. 把 diary-app 整个文件夹压缩成 zip\n2. 通过微信 / AirDrop 发给朋友\n3. 对方解压后用浏览器打开 index.html\n4. 再按下面步骤添加到主屏幕'
+      : '1. 点「分享 / 复制链接」把网址发给朋友\n2. 对方用浏览器打开链接',
+    '',
+    'iPhone（Safari）：',
+    '打开链接 → 底部分享按钮 ⇧ → 添加到主屏幕',
+    '',
+    'Android（Chrome）：',
+    '打开链接 → 右上角菜单 ⋮ → 安装应用 / 添加到主屏幕',
+    '',
+    '装好后全屏运行、离线可用，数据只存在各自手机上'
+  ].join('\n'));
+});
+
+/* ================= 备份：导出 / 导入（换手机迁移，含视频） ================= */
+const blobToDataURL = blob => new Promise((res,rej)=>{
+  const rd = new FileReader();
+  rd.onload = ()=>res(rd.result); rd.onerror = ()=>rej(rd.error);
+  rd.readAsDataURL(blob);
+});
+/* 导出：全部日记+转写+照片+视频+标签+设置 → 一个 JSON 文件（可存 iCloud Drive / 微信 / 网盘） */
+$('exportData').addEventListener('click', async ()=>{
+  const vids = []; /* [{key,data:base64}]，导入端按 key 还原到 IndexedDB */
+  const seen = new Set();
+  for(const d of diaries) for(const e of (d.entries||[])){
+    if(e.type!=='video' || !e.video || !e.video.idbKey || seen.has(e.video.idbKey)) continue;
+    seen.add(e.video.idbKey);
+    const blob = await idbGet(e.video.idbKey).catch(()=>null);
+    if(blob) vids.push({key:e.video.idbKey, data:await blobToDataURL(blob)});
+  }
+  const payload = {
+    app:'shiguang-diary', ver:1, exportedAt:new Date().toISOString(),
+    diaries: diaries.map(d=>({...d, date:d.date.toISOString(),
+      entries:(d.entries||[]).map(e=>{
+        const c = {...e, time:e.time.toISOString()};
+        if(c.type==='video' && c.video){
+          const v = {...c.video};
+          if(typeof v.src==='string' && v.src.startsWith('blob:')) delete v.src; /* 临时地址导出后无效 */
+          c.video = v;
+        }
+        delete c.__edited;
+        return c;
+      })})),
+    videos: vids,
+    settings, tags: TAGS, profile
+  };
+  const blob = new Blob([JSON.stringify(payload,null,1)],{type:'application/json'});
+  const a = document.createElement('a');
+  const t = new Date(), p = n=>String(n).padStart(2,'0');
+  a.href = URL.createObjectURL(blob);
+  a.download = `拾光日记备份-${t.getFullYear()}${p(t.getMonth()+1)}${p(t.getDate())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  const vtxt = vids.length ? ` · 含 ${vids.length} 段视频` : '';
+  toast(`已导出 ${diaries.length} 篇日记${vtxt} · 请把文件存到 iCloud Drive 或发给自己`, true);
+});
+
+/* 导入：同一天的日记自动合并（片段按 id 去重），两边记的内容都保留 */
+$('importData').addEventListener('click',()=>$('fileImport').click());
+$('fileImport').addEventListener('change',e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = async ()=>{
+    let data;
+    try{ data = JSON.parse(rd.result); }catch(err){ toast('备份文件格式不对'); return; }
+    if(!data || data.app!=='shiguang-diary' || !Array.isArray(data.diaries)){
+      toast('这不是拾光日记的备份文件'); return;
+    }
+    /* 视频文件还原到本机 IndexedDB（key 与日记片段里的 idbKey 对应） */
+    let vidsOK = 0;
+    if(Array.isArray(data.videos)){
+      for(const v of data.videos){
+        try{
+          const blob = await (await fetch(v.data)).blob();
+          await idbPut(v.key, blob);
+          vidsOK++;
+        }catch(err){ /* 单个视频失败不阻断整体导入 */ }
+      }
+    }
+    const dayKey = d=>{ const t=new Date(d); return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`; };
+    const incoming = data.diaries.map(d=>({...d, date:new Date(d.date),
+      entries:(d.entries||[]).map(x=>{
+        const c = {...x, time:new Date(x.time)};
+        if(c.type==='video' && c.video && typeof c.video.src==='string' && c.video.src.startsWith('blob:'))
+          c.video = {...c.video, src:null};
+        return c;
+      })}));
+    const have = new Map(diaries.map(d=>[dayKey(d.date), d]));
+    let added=0, merged=0;
+    incoming.forEach(d=>{
+      const cur = have.get(dayKey(d.date));
+      if(!cur){ diaries.push(d); added++; return; }
+      /* 同日合并：片段去重追加、标签并集（≤3）、天气/心情缺则补 */
+      const ids = new Set(cur.entries.map(x=>x.id));
+      d.entries.forEach(x=>{ if(!ids.has(x.id)) cur.entries.push(x); });
+      cur.entries.sort((a,b)=>a.time-b.time);
+      cur.tags = [...new Set([...(cur.tags||[]), ...(d.tags||[])])].slice(0,3);
+      if(!cur.weather && d.weather) cur.weather = d.weather;
+      if(!cur.mood && d.mood) cur.mood = d.mood;
+      merged++;
+    });
+    diaries.sort((a,b)=>b.date-a.date);
+    if(data.settings) Object.assign(settings, data.settings);
+    if(data.profile && data.profile.name) profile = data.profile;
+    if(Array.isArray(data.tags) && data.tags.length) TAGS = data.tags;
+    persist(); renderFilterRow(); renderTimeline(); applyTheme(); initThemeUI(); renderProfile();
+    const vtxt = vidsOK ? ` · 视频 ${vidsOK} 段` : '';
+    toast(`导入完成：新增 ${added} 篇 · 合并 ${merged} 篇${vtxt}`, true);
+  };
+  rd.readAsText(f);
+  e.target.value='';
+});
+
+/* 载入示例日记：想看演示效果时手动点，不再自动塞入 */
+$('loadDemo').addEventListener('click',()=>{
+  if(!confirm('载入示例日记？（会按日期合并进现有日记，不影响你已写的内容）')) return;
+  DEMO_DIARIES.forEach(demo=>{
+    const cur = diaries.find(x=>sameDay(x.date, demo.date));
+    if(cur){
+      demo.entries.forEach(e=>cur.entries.push({...e}));
+      cur.entries.sort((a,b)=>a.time-b.time);
+      cur.tags = [...new Set([...cur.tags, ...demo.tags])].slice(0,3);
+      if(!cur.weather) cur.weather = demo.weather;
+      if(!cur.mood) cur.mood = demo.mood;
+    }else{
+      diaries.push({...demo, entries:demo.entries.map(e=>({...e}))});
+    }
+  });
+  diaries.sort((a,b)=>b.date-a.date);
+  persist(); renderFilterRow(); renderTimeline();
+  toast('示例日记已载入', true);
+});
+/* 清空数据：重新开始（建议先导出备份） */
+$('clearData').addEventListener('click',()=>{
+  if(!confirm('清空本机全部日记？此操作不可恢复。建议先「导出备份」。')) return;
+  localStorage.removeItem(LS_KEY);
+  diaries = [];
+  persist(); renderFilterRow(); renderTimeline();
+  toast('已清空 · 开始记你自己的日记吧', true);
+});
+
+/* ================= 初始化 ================= */
+/* 先恢复本地数据（日记/设置/标签），再渲染界面 */
+if(restore()){
+  $('dataInfo').textContent = `已自动保存 ${diaries.length} 篇日记 · 断网/重启不丢失`;
+}
+/* 手机框随视口高度自适应缩放：视口不够高时整体缩小，避免外层页面滚动导致点击错位/元素够不到 */
+function fitPhone(){
+  if(document.body.classList.contains('pwa')) return; /* App 模式已全屏，无需缩放 */
+  if(matchMedia('(max-width:960px)').matches) return; /* 手机/窄屏已全屏铺满 */
+  const z = Math.min(1, (innerHeight - 48) / 868);
+  document.querySelector('.phone').style.zoom = String(z);
+}
+addEventListener('resize', fitPhone);
+fitPhone();
+applyTheme();
+initThemeUI();
+renderFilterRow();
+renderTimeline();
+/* Service Worker：离线缓存（不支持的环境静默跳过） */
+/* 版本显示 + 手动检查更新：绕过缓存拉最新 sw.js，装好后提示重启 */
+$('appVersion').textContent = APP_VERSION;
+$('aboutVer').textContent = `${APP_VERSION} · 可安装离线版 · 数据本地优先`;
+$('checkUpdate').addEventListener('click', async ()=>{
+  const info = $('updInfo');
+  if(!('serviceWorker' in navigator)){ info.textContent = '当前环境不支持自动更新'; return; }
+  info.textContent = '检查中…';
+  try{
+    /* 先触发 Service Worker 本体更新检查 */
+    const reg = await navigator.serviceWorker.getRegistration();
+    if(reg) await reg.update().catch(()=>{});
+    /* 真实比对：带时间戳抓服务器上的页面（绕过 SW 和 HTTP 缓存），读出它的版本号 */
+    const res = await fetch(`index.html?v=${Date.now()}`, { cache:'no-store' });
+    const txt = await res.text();
+    const m = txt.match(/APP_VERSION\s*=\s*'([^']+)'/);
+    const serverVer = m ? m[1] : null;
+    if(serverVer && serverVer !== APP_VERSION){
+      info.textContent = `发现新版本 ${serverVer} · 正在切换…`;
+      setTimeout(()=>location.reload(), 800);
+    }else if(serverVer){
+      info.textContent = `已是最新（${APP_VERSION}）`;
+    }else{
+      info.textContent = `服务器未返回版本信息（${APP_VERSION}）`;
+    }
+  }catch(err){
+    info.textContent = '检查失败 · 稍后再试或清一次 Safari 网站数据';
+  }
+});
+
+/* iOS 双指缩放禁用（gesturestart 是苹果私有事件，Safari 浏览器模式也有效） */
+['gesturestart','gesturechange','gestureend'].forEach(ev=>
+  document.addEventListener(ev, e=>e.preventDefault(), {passive:false}));
+
+if('serviceWorker' in navigator){
+  /* updateViaCache:none — 每次都拿最新 sw.js（绕过 HTTP 缓存，更新不再滞后 10 分钟） */
+  addEventListener('load', async ()=>{
+    try{
+      const reg = await navigator.serviceWorker.register('sw.js', {updateViaCache:'none'});
+      reg.update().catch(()=>{});
+      /* 有新版本装好了 → 提示重启生效 */
+      reg.addEventListener('updatefound', ()=>{
+        const nw = reg.installing;
+        if(nw) nw.addEventListener('statechange', ()=>{
+          if(nw.state==='installed' && navigator.serviceWorker.controller)
+            toast('新版本已就绪 · 完全关闭 App 后重新打开即可生效', true);
+        });
+      });
+    }catch(err){ /* 不支持的环境静默跳过 */ }
+  });
+}
+window.__booted = true;
+</script>
+</body>
+</html>
